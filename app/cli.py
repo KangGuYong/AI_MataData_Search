@@ -93,6 +93,17 @@ def fixture() -> None:
     _run_sql_file("03_biz_fixture.sql")
 
 
+@app_cli.command("embed-test")
+def embed_test() -> None:
+    """임베딩 클라이언트가 살아있는지 확인한다."""
+    from app.embedding.base import get_embedding_client
+
+    client = get_embedding_client()
+    vecs = client.embed(["매출액", "고객 지역", "서울"])
+    console.print(f"[green]OK[/] provider={settings.embed_provider} "
+                  f"count={len(vecs)} dim={len(vecs[0])}")
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
