@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -8,6 +9,18 @@ from app.db import biz_conn_readonly, dsn_user, mask_dsn, meta_conn
 
 app_cli = typer.Typer(help="AI 메타데이터 검색 CLI")
 console = Console()
+
+SQL_DIR = Path(__file__).resolve().parent.parent / "sql"
+
+
+def _run_sql_file(name: str) -> None:
+    path = SQL_DIR / name
+    sql = path.read_text(encoding="utf-8")
+    with meta_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+        conn.commit()
+    console.print(f"[green]OK[/] {name} 실행 완료")
 
 
 @app_cli.callback()
@@ -65,6 +78,13 @@ def doctor() -> None:
         ok = False
 
     raise typer.Exit(0 if ok else 1)
+
+
+@app_cli.command("init-db")
+def init_db() -> None:
+    """확장 설치 + meta 스키마 생성. meta 테이블을 전부 재생성한다."""
+    _run_sql_file("01_extensions.sql")
+    _run_sql_file("02_meta_schema.sql")
 
 
 def main() -> None:
