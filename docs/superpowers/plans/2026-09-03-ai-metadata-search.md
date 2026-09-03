@@ -6,7 +6,7 @@
 
 **Architecture:** `meta` 스키마에 테이블/컬럼/값/관계 메타데이터를 적재하고, 질문에 대해 벡터·키워드(pg_trgm)·값 3경로를 병렬 검색한 뒤 가중 RRF로 테이블 단위 점수를 합산한다. 선정된 테이블 사이의 조인 경로를 BFS로 채워 LLM 컨텍스트를 만들고, 생성된 SQL은 sqlglot AST 검사·LIMIT 주입·READ ONLY 트랜잭션을 거쳐 실행한다. `fusion`/`guard`/`graph`/`tokenize` 네 모듈은 순수 함수로 만들어 DB·LLM 없이 단위 테스트한다.
 
-**Tech Stack:** Python 3.11+, psycopg 3, pgvector, pg_trgm, sqlglot, httpx, pydantic-settings, typer, pytest, FastAPI, Streamlit, Ollama(`gemma4:26b-a4b-it-q4_K_M`), 임베딩 `nlpai-lab/KURE-v1`(1024차원)
+**Tech Stack:** Python 3.11+, psycopg 3, pgvector, pg_trgm, sqlglot, httpx, pydantic-settings, typer, pytest, FastAPI, Streamlit, Ollama(`gemma4:26b-a4b-it-q4_K_M`), 임베딩 `bge-m3:latest`(1024차원, 향후 `nlpai-lab/KURE-v1`으로 교체 가능)
 
 **Spec:** [2026-09-03-ai-metadata-search-design.md](../specs/2026-09-03-ai-metadata-search-design.md)
 
@@ -115,7 +115,7 @@ LLM_TIMEOUT_SEC=60
 
 # --- Embedding ---
 EMBED_PROVIDER=ollama
-EMBED_MODEL=kure-v1
+EMBED_MODEL=bge-m3:latest
 EMBED_DIM=1024
 EMBED_BATCH=16
 
@@ -174,7 +174,7 @@ class Settings(BaseSettings):
 
     # Embedding
     embed_provider: str = "ollama"          # ollama | sentence_transformers
-    embed_model: str = "kure-v1"
+    embed_model: str = "bge-m3:latest"
     embed_dim: int = 1024
     embed_batch: int = 16
 
@@ -789,30 +789,32 @@ git commit -m "test: biz 테스트 픽스처와 함정 데이터"
 
 ---
 
-## Task 5: Embedding 클라이언트 ★최대 리스크
+## Task 5: Embedding 클라이언트
 
-이 단계에서 막히면 파이프라인 전체가 멈춘다. 그래서 여기를 앞으로 당겼다. Ollama 경로가 안 되면 **즉시** `EMBED_PROVIDER=sentence_transformers`로 전환한다.
+**계획 수립 후 환경 확인에서 리스크가 해소되었다.** Ollama 서버(192.168.0.169)에 `bge-m3:latest`가 이미 설치되어 있고 `/api/embed` 응답이 **정확히 1024차원**임을 확인했다. KURE-v1이 BGE-M3의 한국어 파인튜닝 모델이라 차원이 동일하므로, 스키마 변경 없이 `bge-m3:latest`로 시작하고 나중에 `.env` 한 줄로 KURE-v1으로 교체할 수 있다.
 
 **Files:**
 - Create: `app/embedding/base.py`, `app/embedding/ollama_client.py`, `app/embedding/sstf_client.py`
 - Modify: `app/cli.py` (`embed-test` 명령 추가)
 
-- [ ] **Step 1: KURE-v1을 Ollama에 등록 시도**
+- [ ] **Step 1: 기본 임베딩 모델 확인 (변환 작업 불필요)**
 
-Ollama 서버(192.168.0.169)에서 수행한다. `llama.cpp`의 변환 스크립트를 사용한다.
+`EMBED_MODEL=bge-m3:latest`를 그대로 사용한다. 아래로 서버 상태만 확인한다.
 
 ```bash
-pip install -U huggingface_hub
+curl -s http://192.168.0.169:11434/api/tags | grep -o '"name":"[^"]*"'
+```
+
+Expected: `"name":"bge-m3:latest"` 가 포함된다.
+
+**KURE-v1 전환은 선택 사항이며 지금 하지 않는다.** 나중에 한국어 정확도를 더 끌어올릴 필요가 생기면 Ollama 서버에서 아래를 수행한 뒤 `.env`의 `EMBED_MODEL`만 바꾼다.
+
+```bash
 huggingface-cli download nlpai-lab/KURE-v1 --local-dir ./KURE-v1
-git clone --depth 1 https://github.com/ggerganov/llama.cpp
 python llama.cpp/convert_hf_to_gguf.py ./KURE-v1 --outfile kure-v1-f16.gguf --outtype f16
 printf 'FROM ./kure-v1-f16.gguf\n' > Modelfile
 ollama create kure-v1 -f Modelfile
 ```
-
-Expected: `ollama list`에 `kure-v1`이 나타난다.
-
-변환이 실패하면 이 단계를 중단하고 Step 5의 폴백으로 넘어간다. **변환에 시간을 쏟지 말 것.** 폴백이 기능적으로 동등하다.
 
 - [ ] **Step 2: `app/embedding/base.py` 작성**
 
