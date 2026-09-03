@@ -45,7 +45,7 @@ def biz_conn_collect():
     """수집용 업무 DB 커넥션. 프로파일링은 시간이 걸릴 수 있어 타임아웃을 길게 잡는다."""
     with psycopg.connect(settings.biz_dsn, autocommit=True) as conn:
         with conn.cursor() as cur:
-            cur.execute("SET statement_timeout = '120s'")
+            cur.execute(f"SET statement_timeout = '{int(settings.collect_timeout_sec)}s'")
         yield conn
 
 

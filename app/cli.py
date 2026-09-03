@@ -1,3 +1,5 @@
+import sys
+
 import typer
 from rich.console import Console
 
@@ -66,6 +68,11 @@ def doctor() -> None:
 
 
 def main() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass  # 리다이렉트된 스트림 등 reconfigure 불가한 경우는 무시한다
     app_cli()
 
 

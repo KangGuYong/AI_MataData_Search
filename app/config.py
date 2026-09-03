@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
@@ -47,7 +48,8 @@ class Settings(BaseSettings):
     # SQL 실행
     sql_row_limit: int = 100
     sql_max_limit: int = 1000
-    sql_timeout_sec: int = 10
+    sql_timeout_sec: int = Field(default=10, gt=0)
+    collect_timeout_sec: int = Field(default=120, gt=0)
 
     @property
     def weights(self) -> dict[str, float]:
