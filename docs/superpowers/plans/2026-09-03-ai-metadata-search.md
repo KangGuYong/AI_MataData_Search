@@ -140,6 +140,7 @@ TRGM_MIN_SIMILARITY=0.2
 SQL_ROW_LIMIT=100
 SQL_MAX_LIMIT=1000
 SQL_TIMEOUT_SEC=10
+COLLECT_TIMEOUT_SEC=120
 ```
 
 - [ ] **Step 3: 실제 `.env` 생성 (커밋 금지)**
@@ -153,12 +154,19 @@ cp .env.example .env
 - [ ] **Step 4: `app/config.py` 작성**
 
 ```python
+from pathlib import Path
+
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 상대경로 ".env"는 cwd 기준으로 해석된다. streamlit/uvicorn을 다른
+# 디렉토리에서 실행하면 설정이 조용히 무시되므로 절대경로로 고정한다.
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore"
     )
 
     # DB
@@ -198,7 +206,9 @@ class Settings(BaseSettings):
     # SQL 실행
     sql_row_limit: int = 100
     sql_max_limit: int = 1000
-    sql_timeout_sec: int = 10
+    # statement_timeout = 0 은 "무제한"이므로 반드시 양수여야 한다.
+    sql_timeout_sec: int = Field(default=10, gt=0)
+    collect_timeout_sec: int = Field(default=120, gt=0)
 
     @property
     def weights(self) -> dict[str, float]:
@@ -338,9 +348,10 @@ def biz_conn_readonly():
         conn.read_only = True
         try:
             with conn.cursor() as cur:
+                # PostgreSQL의 SET은 바인드 파라미터를 받지 않는다(syntax error at or near "$1").
+                # 값은 int로 강제 변환하므로 인젝션 경로가 없다.
                 cur.execute(
-                    "SET LOCAL statement_timeout = %s",
-                    (f"{settings.sql_timeout_sec}s",),
+                    f"SET LOCAL statement_timeout = '{int(settings.sql_timeout_sec)}s'"
                 )
                 cur.execute("SET LOCAL transaction_read_only = on")
             yield conn
@@ -353,7 +364,9 @@ def biz_conn_collect():
     """수집용 업무 DB 커넥션. 프로파일링은 시간이 걸릴 수 있어 타임아웃을 길게 잡는다."""
     with psycopg.connect(settings.biz_dsn, autocommit=True) as conn:
         with conn.cursor() as cur:
-            cur.execute("SET statement_timeout = '120s'")
+            cur.execute(
+                f"SET statement_timeout = '{int(settings.collect_timeout_sec)}s'"
+            )
         yield conn
 
 
@@ -365,6 +378,8 @@ def dsn_user(dsn: str) -> str:
 - [ ] **Step 2: `app/cli.py`에 `doctor` 명령 작성**
 
 ```python
+import sys
+
 import typer
 from rich.console import Console
 
@@ -373,6 +388,11 @@ from app.db import biz_conn_readonly, dsn_user, mask_dsn, meta_conn
 
 app_cli = typer.Typer(help="AI 메타데이터 검색 CLI")
 console = Console()
+
+
+@app_cli.callback()
+def _root() -> None:
+    """명령이 하나뿐일 때 Typer가 서브커맨드 이름을 생략시키는 것을 막는다."""
 
 
 @app_cli.command()
@@ -428,6 +448,12 @@ def doctor() -> None:
 
 
 def main() -> None:
+    # Windows 기본 코드페이지(CP949)에서 한글 출력이 깨지는 것을 막는다.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
     app_cli()
 
 
