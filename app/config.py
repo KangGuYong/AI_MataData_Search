@@ -1,0 +1,58 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
+
+    # DB
+    meta_dsn: str
+    biz_dsn: str
+    biz_schema: str = "biz"
+    meta_schema: str = "meta"
+
+    # LLM
+    ollama_base_url: str = "http://192.168.0.169:11434"
+    llm_model: str = "gemma4:26b-a4b-it-q4_K_M"
+    llm_timeout_sec: int = 60
+
+    # Embedding
+    embed_provider: str = "ollama"          # ollama | sentence_transformers
+    embed_model: str = "bge-m3:latest"
+    embed_dim: int = 1024
+    embed_batch: int = 16
+
+    # 수집
+    value_distinct_max: int = 50
+    sample_value_count: int = 5
+
+    # 검색 튜닝
+    rrf_k: int = 60
+    w_value: float = 3.0
+    w_vector_col: float = 1.0
+    w_vector_tbl: float = 1.0
+    w_keyword: float = 0.7
+    top_tables: int = 5
+    score_cutoff_ratio: float = 0.2
+    max_hits_per_table: int = 3
+    max_context_tables: int = 8
+    join_max_depth: int = 3
+    trgm_min_similarity: float = 0.2
+
+    # SQL 실행
+    sql_row_limit: int = 100
+    sql_max_limit: int = 1000
+    sql_timeout_sec: int = 10
+
+    @property
+    def weights(self) -> dict[str, float]:
+        return {
+            "value": self.w_value,
+            "v_col": self.w_vector_col,
+            "v_tbl": self.w_vector_tbl,
+            "keyword": self.w_keyword,
+        }
+
+
+settings = Settings()
