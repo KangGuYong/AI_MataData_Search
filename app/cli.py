@@ -16,10 +16,16 @@ SQL_DIR = Path(__file__).resolve().parent.parent / "sql"
 def _run_sql_file(name: str) -> None:
     path = SQL_DIR / name
     sql = path.read_text(encoding="utf-8")
-    with meta_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql)
-        conn.commit()
+    try:
+        with meta_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+            conn.commit()
+    except Exception as e:
+        # 파일 전체를 한 문장으로 보내므로 psycopg 오류만으로는 어느 파일에서
+        # 실패했는지 알 수 없다. 파일명을 붙여 다시 던진다.
+        console.print(f"[red]FAIL[/] {name} 실행 실패: {e}")
+        raise
     console.print(f"[green]OK[/] {name} 실행 완료")
 
 
@@ -83,6 +89,7 @@ def doctor() -> None:
 @app_cli.command("init-db")
 def init_db() -> None:
     """확장 설치 + meta 스키마 생성. meta 테이블을 전부 재생성한다."""
+    console.print("[yellow]경고[/] meta 스키마의 7개 테이블을 모두 삭제 후 재생성합니다")
     _run_sql_file("01_extensions.sql")
     _run_sql_file("02_meta_schema.sql")
 
