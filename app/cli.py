@@ -87,6 +87,12 @@ def init_db() -> None:
     _run_sql_file("02_meta_schema.sql")
 
 
+@app_cli.command()
+def fixture() -> None:
+    """biz 테스트 테이블과 더미 데이터를 생성한다. 기존 biz 테이블을 삭제한다."""
+    _run_sql_file("03_biz_fixture.sql")
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
