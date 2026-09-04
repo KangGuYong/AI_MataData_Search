@@ -38,7 +38,10 @@ class Settings(BaseSettings):
     w_vector_col: float = 1.0
     w_vector_tbl: float = 1.0
     w_keyword: float = 0.7
-    top_tables: int = 5
+    # tests/questions.yaml 8문항 eval --retrieval-only 로 5(사실상 미작동) ->
+    # 2로 낮췄을 때 Precision 0.375 -> 0.688 (Recall 0.875 -> 0.833). 테이블이
+    # 4개뿐인 고정 세트에서만 유효한 값이며, 테이블 수가 늘면 재측정이 필요하다.
+    top_tables: int = 2
     score_cutoff_ratio: float = 0.2
     max_hits_per_table: int = 3
     max_context_tables: int = 8
