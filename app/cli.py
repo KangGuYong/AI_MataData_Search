@@ -129,6 +129,16 @@ def enrich() -> None:
     console.print(f"[green]OK[/] enrich 완료: {enrich_all()}")
 
 
+@app_cli.command()
+def embed() -> None:
+    """search_text를 다시 만들고 테이블/컬럼/값 임베딩을 채운다."""
+    from app.collect.embed import embed_all
+    from app.collect.search_text import rebuild_search_text
+
+    console.print(f"[green]OK[/] search_text: {rebuild_search_text()}")
+    console.print(f"[green]OK[/] embedding: {embed_all()}")
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
