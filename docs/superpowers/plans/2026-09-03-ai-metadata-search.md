@@ -131,6 +131,8 @@ W_VECTOR_TBL=1.0
 W_KEYWORD=0.7
 TOP_TABLES=5
 SCORE_CUTOFF_RATIO=0.2
+MIN_TABLE_SCORE=0.0
+MIN_TOKEN_IDF=0.5
 MAX_HITS_PER_TABLE=3
 MAX_CONTEXT_TABLES=8
 JOIN_MAX_DEPTH=3
@@ -3168,7 +3170,7 @@ Recall이 낮은 케이스와 Precision이 낮은 케이스를 나누어 대응�
 | 6번에서 `customer`가 끼어든다 (`서울식품` → `서울` 오탐) | `TRGM_MIN_SIMILARITY`를 0.3~0.4로 올린다. 값 경로의 부분일치가 원인이다 |
 | 2번 `customer`를 못 찾는다 | `W_VECTOR_TBL`을 1.5로 올린다 |
 | 4번에서 `order_detail`이 끼어든다 | `SCORE_CUTOFF_RATIO`를 0.3으로 올린다 |
-| 8번에서 무관 테이블이 선정된다 | `SCORE_CUTOFF_RATIO`로는 막을 수 없다(상대 기준). 절대 점수 하한이 필요하다면 스펙 10장의 rerank 도입을 검토한다 |
+| 8번에서 무관 테이블이 선정된다 | **해결됨.** 절대 점수 하한(`MIN_TABLE_SCORE`)으로는 불가능함이 실측으로 확인됐다 — 무관 질문의 최고점(0.04892)이 정상 질문(0.04840, 0.04865)보다 높다. 벡터 유사도 하한도 같다(무관 0.4274 > 정상 0.3960). 실제로 갈리는 것은 **토큰 변별력(IDF)**이다: 무관 0.29 vs 정상 전부 ≥0.69. `MIN_TOKEN_IDF=0.5` 게이트로 해결 |
 | 3번에서 `orders`가 빠진다 | 정상이다. 브릿지로 자동 포함되는지 `--show-context`로 확인한다 |
 
 `.env`를 수정한 뒤 매번 다시 실행해 회귀를 확인한다.

@@ -48,3 +48,18 @@ def test_동점이면_table_id_오름차순():
 
 def test_히트가_없으면_빈_결과():
     assert fuse([], **BASE) == []
+
+
+def test_min_score는_절대_하한으로_동작한다():
+    # 상대 컷오프(20%)로는 살아남지만 절대 하한에는 못 미치는 경우
+    hits = [hit("v_col", 1, 1), hit("v_col", 2, 2)]
+    kept = fuse(hits, **{**BASE, "min_score": 0.0})
+    assert [t.table_id for t in kept] == [1, 2]
+    cut = fuse(hits, **{**BASE, "min_score": 1.0 / 61})
+    assert [t.table_id for t in cut] == [1]
+    assert fuse(hits, **{**BASE, "min_score": 1.0}) == []
+
+
+def test_min_score_기본값은_비활성이다():
+    hits = [hit("v_col", 1, 1)]
+    assert fuse(hits, **BASE) == fuse(hits, **{**BASE, "min_score": 0.0})

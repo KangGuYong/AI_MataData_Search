@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     # 4개뿐인 고정 세트에서만 유효한 값이며, 테이블 수가 늘면 재측정이 필요하다.
     top_tables: int = 2
     score_cutoff_ratio: float = 0.2
+    # 융합 점수의 절대 하한. 상대 컷오프와 달리 무관한 질문 자체를 거를 수
+    # 있지만, 테이블이 적으면 점수가 촘촘히 붙어 효과가 없다. 실측 결과
+    # 이 4테이블 픽스처에서는 무관 질문(0.04892)이 정상 질문(0.04840,
+    # 0.04865)보다 오히려 높아 분리가 불가능하므로 기본값은 0.0(비활성)이다.
+    min_table_score: float = 0.0
+    # 질문 토큰의 최대 IDF가 이 값 미만이면 무관한 질문으로 보고 검색을
+    # 중단한다. log(전체테이블수 / 토큰이_매칭된_테이블수) 기준이다.
+    # 실측: 무관 질문 0.29 vs 정상 질문 전부 >= 0.69.
+    min_token_idf: float = 0.5
     max_hits_per_table: int = 3
     max_context_tables: int = 8
     join_max_depth: int = 3

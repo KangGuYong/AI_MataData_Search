@@ -266,7 +266,11 @@ def eval_cmd(
         else:
             r = run_ask(case["question"])
             actual = {n.split(".")[-1] for n in r.table_names}
-            ok = r.error is None and r.sql is not None
+            # 무관 질문은 SQL을 만들지 않는 것이 정답이다.
+            if expected:
+                ok = r.error is None and r.sql is not None
+            else:
+                ok = r.sql is None
             sql_ok += int(ok)
             sql_mark = "O" if ok else "X"
             note = (r.error or "")[:40]

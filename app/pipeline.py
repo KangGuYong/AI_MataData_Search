@@ -14,7 +14,7 @@ from app.embedding.base import get_embedding_client
 from app.llm.base import get_llm_client
 from app.models import AskResult
 from app.search import context as ctx
-from app.search import keyword, value, vector
+from app.search import keyword, selectivity, value, vector
 from app.search.fusion import fuse
 from app.search.graph import find_join_paths, load_edges
 from app.search.tokenize import tokenize
@@ -24,9 +24,27 @@ from app.sqlgen import execute, generate, guard
 def retrieve(question: str) -> tuple[str, list[int], list[str], dict]:
     """검색 -> 융합 -> 조인경로 -> 컨텍스트. LLM SQL 생성 전까지."""
     tokens = tokenize(question)
-    qvec = get_embedding_client().embed([question])[0]
 
     with meta_conn() as conn, conn.cursor() as cur:
+        # 변별력 게이트를 검색보다 먼저 건다. 어떤 토큰도 테이블을 특정하지
+        # 못하면 융합 점수는 어차피 의미가 없다. 원격 임베딩 호출도 아낀다.
+        cur.execute("SELECT count(*) FROM meta.metadata_table WHERE is_active")
+        total_tables = cur.fetchone()[0]
+        counts = selectivity.token_table_counts(
+            cur, tokens, settings.trgm_min_similarity
+        )
+        idf = selectivity.max_idf(counts, total_tables)
+        if idf < settings.min_token_idf:
+            return "", [], [], {
+                "tokens": tokens,
+                "hits": 0,
+                "scores": [],
+                "token_table_counts": counts,
+                "max_idf": round(idf, 4),
+                "rejected_by": f"변별력 부족 (max_idf {idf:.2f} < {settings.min_token_idf})",
+            }
+
+        qvec = get_embedding_client().embed([question])[0]
         hits = (
             vector.search_columns(cur, qvec)
             + vector.search_tables(cur, qvec)
@@ -40,10 +58,17 @@ def retrieve(question: str) -> tuple[str, list[int], list[str], dict]:
             max_hits_per_table=settings.max_hits_per_table,
             top_tables=settings.top_tables,
             cutoff_ratio=settings.score_cutoff_ratio,
+            min_score=settings.min_table_score,
         )
         selected = [s.table_id for s in scores]
         if not selected:
-            return "", [], [], {"tokens": tokens, "hits": len(hits), "scores": []}
+            return "", [], [], {
+                "tokens": tokens,
+                "hits": len(hits),
+                "scores": [],
+                "max_idf": round(idf, 4),
+                "rejected_by": f"점수 하한 미달 (MIN_TABLE_SCORE={settings.min_table_score})",
+            }
 
         paths = find_join_paths(load_edges(cur), selected, settings.join_max_depth)
         text, all_ids, names = ctx.build(cur, question, selected, paths)
