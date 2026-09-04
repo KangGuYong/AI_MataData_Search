@@ -172,6 +172,45 @@ def search(
     console.print(tbl)
 
 
+@app_cli.command()
+def context(question: str) -> None:
+    """질문에 대한 LLM 컨텍스트를 만들어 출력한다."""
+    from app.db import meta_conn
+    from app.embedding.base import get_embedding_client
+    from app.search import context as ctx
+    from app.search import keyword, value, vector
+    from app.search.fusion import fuse
+    from app.search.graph import find_join_paths, load_edges
+    from app.search.tokenize import tokenize
+
+    tokens = tokenize(question)
+    qvec = get_embedding_client().embed([question])[0]
+
+    with meta_conn() as conn, conn.cursor() as cur:
+        hits = (
+            vector.search_columns(cur, qvec)
+            + vector.search_tables(cur, qvec)
+            + keyword.search(cur, tokens, settings.trgm_min_similarity)
+            + value.search(cur, tokens, settings.trgm_min_similarity)
+        )
+        scores = fuse(
+            hits,
+            k=settings.rrf_k,
+            weights=settings.weights,
+            max_hits_per_table=settings.max_hits_per_table,
+            top_tables=settings.top_tables,
+            cutoff_ratio=settings.score_cutoff_ratio,
+        )
+        for s in scores:
+            console.print(f"  table_id={s.table_id} score={s.score:.5f}")
+        ids = [s.table_id for s in scores]
+        paths = find_join_paths(load_edges(cur), ids, settings.join_max_depth)
+        text, _, names = ctx.build(cur, question, ids, paths)
+
+    console.print(f"[bold]선정 테이블[/] {names}")
+    console.print(text)
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
