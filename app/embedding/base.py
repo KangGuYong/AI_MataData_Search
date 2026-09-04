@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Protocol
 
 from app.config import settings
@@ -11,7 +12,13 @@ class EmbeddingClient(Protocol):
         ...
 
 
+@lru_cache(maxsize=1)
 def get_embedding_client() -> EmbeddingClient:
+    """프로세스당 하나만 만든다.
+
+    FastAPI/Streamlit은 요청마다 이 함수를 부르는데, 매번 새 httpx.Client를
+    만들면 커넥션 풀이 닫히지 않고 쌓여 파일 디스크립터가 샌다.
+    """
     provider = settings.embed_provider.lower()
     if provider == "ollama":
         from app.embedding.ollama_client import OllamaEmbedding

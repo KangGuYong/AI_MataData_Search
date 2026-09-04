@@ -847,6 +847,7 @@ ollama create kure-v1 -f Modelfile
 - [ ] **Step 2: `app/embedding/base.py` 작성**
 
 ```python
+from functools import lru_cache
 from typing import Protocol
 
 from app.config import settings
@@ -860,7 +861,13 @@ class EmbeddingClient(Protocol):
         ...
 
 
+@lru_cache(maxsize=1)
 def get_embedding_client() -> EmbeddingClient:
+    """프로세스당 하나만 만든다.
+
+    FastAPI/Streamlit은 요청마다 이 함수를 부르는데, 매번 새 httpx.Client를
+    만들면 커넥션 풀이 닫히지 않고 쌓여 파일 디스크립터가 샌다.
+    """
     provider = settings.embed_provider.lower()
     if provider == "ollama":
         from app.embedding.ollama_client import OllamaEmbedding
@@ -898,7 +905,14 @@ class OllamaEmbedding:
                 "/api/embed", json={"model": settings.embed_model, "input": chunk}
             )
             r.raise_for_status()
-            vectors = r.json()["embeddings"]
+            payload = r.json()
+            if "embeddings" not in payload:
+                raise RuntimeError(
+                    f"Ollama 임베딩 응답에 'embeddings' 키가 없습니다. "
+                    f"model={settings.embed_model} 응답키={sorted(payload)} "
+                    f"본문={str(payload)[:200]}"
+                )
+            vectors = payload["embeddings"]
             if len(vectors) != len(chunk):
                 raise RuntimeError(
                     f"임베딩 개수 불일치: 요청 {len(chunk)} 응답 {len(vectors)}"
@@ -919,7 +933,14 @@ from app.config import settings
 
 
 class SentenceTransformerEmbedding:
-    """Ollama GGUF 경로가 막혔을 때의 폴백. pip install '.[sstf]' 필요."""
+    """Ollama를 쓸 수 없을 때의 폴백. pip install '.[sstf]' 필요.
+
+    주의: 기본 경로(Ollama bge-m3)와 **다른 모델**(KURE-v1)을 쓴다. 두 모델은
+    차원이 1024로 같아 차원 가드에 걸리지 않으므로, 이미 bge-m3로 임베딩을
+    채운 DB에서 provider만 바꾸면 오류 없이 검색 품질만 조용히 망가진다.
+    provider를 바꾼 뒤에는 반드시 `python -m app.cli embed`로 전체를 다시
+    임베딩해야 한다.
+    """
 
     def __init__(self) -> None:
         from sentence_transformers import SentenceTransformer

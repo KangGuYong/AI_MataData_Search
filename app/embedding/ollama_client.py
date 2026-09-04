@@ -20,7 +20,16 @@ class OllamaEmbedding:
                 "/api/embed", json={"model": settings.embed_model, "input": chunk}
             )
             r.raise_for_status()
-            vectors = r.json()["embeddings"]
+            payload = r.json()
+            if "embeddings" not in payload:
+                # 구버전 /api/embeddings 응답이거나 오류 본문이면 KeyError만 뜬다.
+                # 무엇이 왔는지 보여줘야 원인을 짚을 수 있다.
+                raise RuntimeError(
+                    f"Ollama 임베딩 응답에 'embeddings' 키가 없습니다. "
+                    f"model={settings.embed_model} 응답키={sorted(payload)} "
+                    f"본문={str(payload)[:200]}"
+                )
+            vectors = payload["embeddings"]
             if len(vectors) != len(chunk):
                 raise RuntimeError(
                     f"임베딩 개수 불일치: 요청 {len(chunk)} 응답 {len(vectors)}"
