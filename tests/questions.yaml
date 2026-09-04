@@ -1,0 +1,32 @@
+- id: 1
+  question: "서울 고객의 2025년 판매 실적"
+  expect_tables: [customer, orders]
+  intent: "값 경로 + 업무용어"
+- id: 2
+  question: "고객 정보 보여줘"
+  expect_tables: [customer]
+  intent: "테이블 지향 질문"
+- id: 3
+  question: "상품별 매출 순위"
+  expect_tables: [product, order_detail, orders]
+  intent: "브릿지 조인"
+- id: 4
+  question: "매출액 총합"
+  expect_tables: [orders]
+  intent: "total_amount 와 amount 구분"
+- id: 5
+  question: "부산 지역 주문 건수"
+  expect_tables: [customer, orders]
+  intent: "값 경로"
+- id: 6
+  question: "서울식품 상품 판매량"
+  expect_tables: [product, order_detail]
+  intent: "값 오탐 함정"
+- id: 7
+  question: "2024년 주문 목록"
+  expect_tables: [orders]
+  intent: "단순"
+- id: 8
+  question: "날씨 정보 알려줘"
+  expect_tables: []
+  intent: "무관 질문. 0건이 정답"

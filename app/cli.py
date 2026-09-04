@@ -237,6 +237,66 @@ def ask(question: str, show_context: bool = typer.Option(False, "--show-context"
     console.print(f"{len(r.rows)}행")
 
 
+@app_cli.command("eval")
+def eval_cmd(
+    retrieval_only: bool = typer.Option(False, "--retrieval-only", help="LLM 호출 없이 검색만 평가")
+) -> None:
+    """평가 세트를 일괄 실행하고 지표를 표로 출력한다."""
+    import yaml
+    from rich.table import Table
+
+    from app.pipeline import ask as run_ask
+    from app.pipeline import retrieve
+
+    cases = yaml.safe_load(
+        (Path(__file__).resolve().parent.parent / "tests" / "questions.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    tbl = Table("id", "질문", "기대", "실제", "R", "P", "SQL", "비고")
+    recalls, precisions, sql_ok = [], [], 0
+
+    for case in cases:
+        expected = set(case["expect_tables"])
+        if retrieval_only:
+            _, _, names, _ = retrieve(case["question"])
+            actual = {n.split(".")[-1] for n in names}
+            sql_mark, note = "-", ""
+        else:
+            r = run_ask(case["question"])
+            actual = {n.split(".")[-1] for n in r.table_names}
+            ok = r.error is None and r.sql is not None
+            sql_ok += int(ok)
+            sql_mark = "O" if ok else "X"
+            note = (r.error or "")[:40]
+
+        if not expected:
+            recall = 1.0 if not actual else 0.0
+            precision = recall
+        else:
+            hit = expected & actual
+            recall = len(hit) / len(expected)
+            precision = len(hit) / len(actual) if actual else 0.0
+        recalls.append(recall)
+        precisions.append(precision)
+
+        tbl.add_row(
+            str(case["id"]), case["question"][:22],
+            ",".join(sorted(expected)) or "(없음)",
+            ",".join(sorted(actual)) or "(없음)",
+            f"{recall:.2f}", f"{precision:.2f}", sql_mark, note,
+        )
+
+    console.print(tbl)
+    n = len(cases)
+    console.print(
+        f"[bold]평균 Recall[/] {sum(recalls)/n:.3f}   "
+        f"[bold]평균 Precision[/] {sum(precisions)/n:.3f}   "
+        f"[bold]SQL 성공[/] {sql_ok}/{n}"
+    )
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
