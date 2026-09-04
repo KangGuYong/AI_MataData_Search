@@ -1,5 +1,9 @@
--- PoC에서는 적용 보류. 운영 전환 시 실행한다.
+-- PoC에서는 적용 보류. 운영 전환 시 실행한다. [계정에 조회권한을 Select로 제한]
+
+
 -- psql -v ro_password='<비밀번호>' -f sql/04_readonly_role.sql
+
+
 CREATE ROLE itos_ro LOGIN PASSWORD :'ro_password';
 GRANT CONNECT ON DATABASE ggydb TO itos_ro;
 GRANT USAGE ON SCHEMA biz TO itos_ro;
