@@ -139,6 +139,39 @@ def embed() -> None:
     console.print(f"[green]OK[/] embedding: {embed_all()}")
 
 
+@app_cli.command()
+def search(
+    question: str,
+    path: str = typer.Option("all", help="vector | keyword | value | all"),
+) -> None:
+    """검색 경로별 히트를 확인한다."""
+    from rich.table import Table
+
+    from app.db import meta_conn
+    from app.embedding.base import get_embedding_client
+    from app.search import keyword, value, vector
+    from app.search.tokenize import tokenize
+
+    tokens = tokenize(question)
+    console.print(f"토큰: {tokens}")
+
+    hits = []
+    with meta_conn() as conn, conn.cursor() as cur:
+        if path in ("vector", "all"):
+            qvec = get_embedding_client().embed([question])[0]
+            hits += vector.search_columns(cur, qvec)
+            hits += vector.search_tables(cur, qvec)
+        if path in ("keyword", "all"):
+            hits += keyword.search(cur, tokens, settings.trgm_min_similarity)
+        if path in ("value", "all"):
+            hits += value.search(cur, tokens, settings.trgm_min_similarity)
+
+    tbl = Table("source", "rank", "table_id", "score", "detail")
+    for h in hits:
+        tbl.add_row(h.source, str(h.rank), str(h.table_id), f"{h.raw_score:.3f}", h.detail)
+    console.print(tbl)
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
