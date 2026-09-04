@@ -68,14 +68,23 @@ def ask(question: str) -> AskResult:
         return result
 
     llm = get_llm_client()
-    sql = generate.generate(llm, text)
 
-    # 응답이 SQL 형태조차 아니면 1회 재생성한다 (안전 게이트 거부와는 다른 경우).
-    if not generate.looks_like_sql(sql):
-        trace["not_sql_response"] = sql[:200]
-        sql = generate.regenerate(
-            llm, text, sql, "응답이 SELECT 문이 아닙니다. SQL만 출력하시오."
-        )
+    # LLM 호출은 원격 26B 모델이라 타임아웃/연결 실패가 실제로 일어난다.
+    # 예외를 그대로 올리면 eval 루프가 한 문항에서 통째로 중단되므로
+    # AskResult.error로 바꿔 다음 문항이 계속되게 한다.
+    try:
+        sql = generate.generate(llm, text)
+
+        # 응답이 SQL 형태조차 아니면 1회 재생성한다 (안전 게이트 거부와는 다른 경우).
+        if not generate.looks_like_sql(sql):
+            trace["not_sql_response"] = sql[:200]
+            sql = generate.regenerate(
+                llm, text, sql, "응답이 SELECT 문이 아닙니다. SQL만 출력하시오."
+            )
+    except Exception as e:  # noqa: BLE001
+        trace["llm_error"] = f"{type(e).__name__}: {e}"
+        result.error = f"LLM 호출 실패: {type(e).__name__}"
+        return result
     result.sql = sql
 
     verdict = guard.validate(sql)
@@ -93,7 +102,12 @@ def ask(question: str) -> AskResult:
     err = execute.explain(safe_sql)
     if err:
         trace["explain_error_1"] = err
-        retry = generate.regenerate(llm, text, safe_sql, err)
+        try:
+            retry = generate.regenerate(llm, text, safe_sql, err)
+        except Exception as e:  # noqa: BLE001
+            trace["llm_error"] = f"{type(e).__name__}: {e}"
+            result.error = f"재생성 중 LLM 호출 실패: {type(e).__name__}"
+            return result
         verdict = guard.validate(retry)
         if not verdict.ok:
             result.error = f"재생성 후 안전 검증 거부: {verdict.reason}"
