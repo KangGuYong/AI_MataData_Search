@@ -43,7 +43,9 @@ class Settings(BaseSettings):
     max_hits_per_table: int = 3
     max_context_tables: int = 8
     join_max_depth: int = 3
-    trgm_min_similarity: float = 0.2
+    # keyword 경로는 word_similarity를 쓴다. 토큰이 그대로 들어있으면 1.0이
+    # 나오므로 similarity() 기준이던 0.2보다 높게 잡아야 쓰레기가 걸러진다.
+    trgm_min_similarity: float = 0.7
 
     # SQL 실행
     sql_row_limit: int = 100

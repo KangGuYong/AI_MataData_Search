@@ -134,7 +134,7 @@ SCORE_CUTOFF_RATIO=0.2
 MAX_HITS_PER_TABLE=3
 MAX_CONTEXT_TABLES=8
 JOIN_MAX_DEPTH=3
-TRGM_MIN_SIMILARITY=0.2
+TRGM_MIN_SIMILARITY=0.7
 
 # --- SQL 실행 ---
 SQL_ROW_LIMIT=100
@@ -201,7 +201,7 @@ class Settings(BaseSettings):
     max_hits_per_table: int = 3
     max_context_tables: int = 8
     join_max_depth: int = 3
-    trgm_min_similarity: float = 0.2
+    trgm_min_similarity: float = 0.7
 
     # SQL 실행
     sql_row_limit: int = 100
