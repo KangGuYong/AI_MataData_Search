@@ -2626,7 +2626,20 @@ from app.models import GuardResult
 FORBIDDEN_NODES = (
     exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Alter, exp.Create,
     exp.TruncateTable, exp.Grant, exp.Copy, exp.Merge, exp.Command,
+    exp.Into,   # SELECT ... INTO 는 SELECT 옷을 입은 쓰기다
 )
+
+# AST에서 파싱된 함수 노드 이름으로 막는다. 원문 정규식이 아니므로
+# 대소문자나 주석으로 우회되지 않는다.
+# dblink는 별도 커넥션을 열어 임의 SQL을 실행하므로 방어선 3(READ ONLY
+# 트랜잭션)을 통째로 우회한다. 계정 권한(방어선 4)을 보류한 이 PoC에서는
+# 데이터를 실제로 파괴할 수 있는 유일한 탈출구였다.
+FORBIDDEN_FUNCTIONS = {
+    "dblink", "dblink_exec", "dblink_connect", "dblink_connect_u",
+    "pg_sleep", "pg_sleep_for", "pg_sleep_until",          # DoS
+    "pg_read_file", "pg_read_binary_file", "pg_ls_dir",    # 파일 접근
+    "pg_terminate_backend", "pg_cancel_backend",           # 타 세션 방해
+}
 ALLOWED_ROOTS = (exp.Select, exp.Union, exp.Except, exp.Intersect)
 FORBIDDEN_SCHEMAS = {"pg_catalog", "information_schema", "pg_temp", "pg_toast"}
 
@@ -2656,6 +2669,11 @@ def validate(sql: str) -> GuardResult:
         if isinstance(node, FORBIDDEN_NODES):
             return GuardResult(False, None, f"금지된 구문: {type(node).__name__}")
 
+    for fn in root.find_all(exp.Func, exp.Anonymous):
+        fname = (fn.sql_name() if hasattr(fn, "sql_name") else fn.name or "").lower()
+        if fname in FORBIDDEN_FUNCTIONS:
+            return GuardResult(False, None, f"금지된 함수 호출: {fname}")
+
     for table in root.find_all(exp.Table):
         db = (table.text("db") or "").lower()
         name = (table.name or "").lower()
@@ -2684,7 +2702,7 @@ def inject_limit(sql: str, *, default_limit: int, max_limit: int) -> str:
 - [ ] **Step 4: 테스트 통과 확인**
 
 Run: `pytest tests/test_guard.py -v`
-Expected: PASS — 20 passed (parametrize 12건 포함)
+Expected: PASS — 23 passed (parametrize 12건 + dblink/pg_sleep 회귀 테스트 2건 포함)
 
 - [ ] **Step 5: 커밋**
 
@@ -3232,7 +3250,7 @@ Expected: 브라우저에서 질문 입력 → 테이블·SQL·결과·trace가 
 - [ ] **Step 4: 전체 테스트 확인**
 
 Run: `pytest -v`
-Expected: PASS — 38 passed (tokenize 6 + fusion 6 + graph 6 + guard 20)
+Expected: PASS — 41 passed (tokenize 6 + fusion 6 + graph 6 + guard 23)
 
 - [ ] **Step 5: 커밋**
 
