@@ -211,6 +211,32 @@ def context(question: str) -> None:
     console.print(text)
 
 
+@app_cli.command()
+def ask(question: str, show_context: bool = typer.Option(False, "--show-context")) -> None:
+    """질문에 대해 SQL을 생성하고 실행한다."""
+    from rich.table import Table
+
+    from app.pipeline import ask as run_ask
+
+    r = run_ask(question)
+    console.print(f"[bold]선정 테이블[/] {r.table_names}")
+    console.print(f"[bold]점수[/] {r.trace.get('scores')}")
+    if show_context:
+        console.print(r.context)
+    if r.sql:
+        console.print(f"[bold]SQL[/]\n{r.sql}")
+    if r.error:
+        console.print(f"[red]{r.error}[/]")
+        raise typer.Exit(1)
+
+    if r.columns:
+        tbl = Table(*r.columns)
+        for row in r.rows[:20]:
+            tbl.add_row(*["" if v is None else str(v) for v in row])
+        console.print(tbl)
+    console.print(f"{len(r.rows)}행")
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
