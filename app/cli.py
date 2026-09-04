@@ -111,6 +111,15 @@ def embed_test() -> None:
                   f"count={len(vecs)} dim={len(vecs[0])}")
 
 
+@app_cli.command()
+def collect() -> None:
+    """biz 스키마를 읽어 meta에 테이블/컬럼/관계를 적재한다."""
+    from app.collect.introspect import collect_schema
+
+    stats = collect_schema()
+    console.print(f"[green]OK[/] 수집 완료: {stats}")
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
