@@ -735,7 +735,9 @@ INSERT INTO biz.customer (customer_name, region, grade, joined_at)
 SELECT
     '고객' || LPAD(g::text, 3, '0'),
     (ARRAY['서울','경기','부산','대구','인천','광주','대전','울산'])[1 + (g % 8)],
-    (ARRAY['VIP','GOLD','SILVER','BRONZE'])[1 + (g % 4)],
+    -- g % 4 로 하면 4가 8(region 주기)을 나누므로 등급이 지역의 결정함수가 된다.
+    -- (g / 8) % 4 는 region 주기가 한 바퀴 돌 때마다 등급을 바꿔 상관을 끊는다.
+    (ARRAY['VIP','GOLD','SILVER','BRONZE'])[1 + ((g / 8) % 4)],
     DATE '2022-01-01' + (g % 900)
 FROM generate_series(1, 200) AS g;
 
