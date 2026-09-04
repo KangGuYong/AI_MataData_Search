@@ -113,11 +113,12 @@ def embed_test() -> None:
 
 @app_cli.command()
 def collect() -> None:
-    """biz 스키마를 읽어 meta에 테이블/컬럼/관계를 적재한다."""
+    """biz 스키마를 읽어 meta에 테이블/컬럼/관계와 값 프로파일을 적재한다."""
     from app.collect.introspect import collect_schema
+    from app.collect.profile import profile_columns
 
-    stats = collect_schema()
-    console.print(f"[green]OK[/] 수집 완료: {stats}")
+    console.print(f"[green]OK[/] 스키마 수집: {collect_schema()}")
+    console.print(f"[green]OK[/] 값 프로파일: {profile_columns()}")
 
 
 def main() -> None:
