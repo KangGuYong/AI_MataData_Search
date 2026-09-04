@@ -121,6 +121,14 @@ def collect() -> None:
     console.print(f"[green]OK[/] 값 프로파일: {profile_columns()}")
 
 
+@app_cli.command()
+def enrich() -> None:
+    """LLM으로 업무명/설명/동의어를 생성해 meta에 채운다."""
+    from app.collect.enrich import enrich_all
+
+    console.print(f"[green]OK[/] enrich 완료: {enrich_all()}")
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         try:
