@@ -16,36 +16,38 @@
 
 **신규**
 
-| 파일 | 책임 |
-|---|---|
-| `sqlmcp/__init__.py` | 패키지 마커 |
-| `sqlmcp/config.py` | `.env.mcp` 전용 Settings. `app/config.py`와 아무것도 공유하지 않음 |
-| `sqlmcp/guard.py` | `app/sqlgen/guard.py`를 그대로 이동. 순수 함수 |
-| `sqlmcp/db.py` | `biz_conn_readonly()` — READ ONLY + statement_timeout + 항상 rollback |
-| `sqlmcp/execute.py` | `explain(sql)` / `run(sql)` — DB 왕복 2종 |
-| `sqlmcp/query.py` | `run_query(sql) -> dict` — guard→inject→explain→run 오케스트레이션. HTTP·MCP 무관 |
-| `sqlmcp/auth.py` | Bearer 미들웨어. 설정·DB 의존이 없어 단독으로 테스트된다 |
-| `sqlmcp/server.py` | FastMCP 도구 등록, 앱 조립, uvicorn 기동 |
-| `app/sqlgen/mcp_client.py` | sync 경계. `run_query(sql) -> QueryResult` |
-| `scripts/run.ps1` | sqlmcp → uvicorn → streamlit 순차 기동/종료 |
-| `.env.mcp.example` | 서버 설정 예시 |
-| `tests/test_query_contract.py` | `sqlmcp.query.run_query`의 결과 검증 |
-| `tests/test_pipeline_branch.py` | `pipeline.ask`의 재생성 분기 검증 (LLM·DB 불필요) |
+
+| 파일                            | 책임                                                                                   |
+| --------------------------------- | ---------------------------------------------------------------------------------------- |
+| `sqlmcp/__init__.py`            | 패키지 마커                                                                            |
+| `sqlmcp/config.py`              | `.env.mcp` 전용 Settings. `app/config.py`와 아무것도 공유하지 않음                     |
+| `sqlmcp/guard.py`               | `app/sqlgen/guard.py`를 그대로 이동. 순수 함수                                         |
+| `sqlmcp/db.py`                  | `biz_conn_readonly()` — READ ONLY + statement_timeout + 항상 rollback                 |
+| `sqlmcp/execute.py`             | `explain(sql)` / `run(sql)` — DB 왕복 2종                                             |
+| `sqlmcp/query.py`               | `run_query(sql) -> dict` — guard→inject→explain→run 오케스트레이션. HTTP·MCP 무관 |
+| `sqlmcp/auth.py`                | Bearer 미들웨어. 설정·DB 의존이 없어 단독으로 테스트된다                              |
+| `sqlmcp/server.py`              | FastMCP 도구 등록, 앱 조립, uvicorn 기동                                               |
+| `app/sqlgen/mcp_client.py`      | sync 경계.`run_query(sql) -> QueryResult`                                              |
+| `scripts/run.ps1`               | sqlmcp → uvicorn → streamlit 순차 기동/종료                                          |
+| `.env.mcp.example`              | 서버 설정 예시                                                                         |
+| `tests/test_query_contract.py`  | `sqlmcp.query.run_query`의 결과 검증                                                   |
+| `tests/test_pipeline_branch.py` | `pipeline.ask`의 재생성 분기 검증 (LLM·DB 불필요)                                     |
 
 **수정**
 
-| 파일 | 변경 |
-|---|---|
-| `app/db.py` | `biz_conn_readonly()` 제거 |
-| `app/config.py` | `sql_row_limit`/`sql_max_limit`/`sql_timeout_sec` 제거, `api_url`/`mcp_url`/`mcp_auth_token`/`mcp_timeout_sec` 추가 |
-| `app/models.py` | `QueryResult` 추가, `GuardResult` 제거, `AskResult.rows` 타입 `list[list]` |
-| `app/pipeline.py` | SQL 실행부를 `mcp_client.run_query()`로 교체 |
-| `app/ui.py` | `pipeline` 직접 import 제거 → `POST {API_URL}/ask` |
-| `app/cli.py` | `ask`·`eval` 기본 경로를 API 경유로, `doctor`에 MCP 점검 추가 |
-| `pyproject.toml` | `mcp>=1.2` 추가, 패키지 탐색에 `sqlmcp*` 추가 |
-| `.gitignore` | `!.env.mcp.example` 추가 |
-| `.env.example` | MCP 설정 추가, SQL 실행 3종 제거 |
-| `README.md` / `docs/ARCHITECTURE.md` | 실행 절차와 구조 갱신 |
+
+| 파일                                 | 변경                                                                                                                |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `app/db.py`                          | `biz_conn_readonly()` 제거                                                                                          |
+| `app/config.py`                      | `sql_row_limit`/`sql_max_limit`/`sql_timeout_sec` 제거, `api_url`/`mcp_url`/`mcp_auth_token`/`mcp_timeout_sec` 추가 |
+| `app/models.py`                      | `QueryResult` 추가, `GuardResult` 제거, `AskResult.rows` 타입 `list[list]`                                          |
+| `app/pipeline.py`                    | SQL 실행부를`mcp_client.run_query()`로 교체                                                                         |
+| `app/ui.py`                          | `pipeline` 직접 import 제거 → `POST {API_URL}/ask`                                                                 |
+| `app/cli.py`                         | `ask`·`eval` 기본 경로를 API 경유로, `doctor`에 MCP 점검 추가                                                      |
+| `pyproject.toml`                     | `mcp>=1.2` 추가, 패키지 탐색에 `sqlmcp*` 추가                                                                       |
+| `.gitignore`                         | `!.env.mcp.example` 추가                                                                                            |
+| `.env.example`                       | MCP 설정 추가, SQL 실행 3종 제거                                                                                    |
+| `README.md` / `docs/ARCHITECTURE.md` | 실행 절차와 구조 갱신                                                                                               |
 
 **삭제**: `app/sqlgen/guard.py`, `app/sqlgen/execute.py` (이동)
 
@@ -56,11 +58,12 @@
 ## Task 1: sqlmcp 패키지 뼈대와 설정
 
 **Files:**
+
 - Create: `sqlmcp/__init__.py`, `sqlmcp/config.py`, `.env.mcp.example`
 - Test: `tests/test_sqlmcp_config.py`
 - Modify: `pyproject.toml`, `.gitignore`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [ ]  **Step 1: 실패하는 테스트 작성**
 
 `tests/test_sqlmcp_config.py`:
 
@@ -93,12 +96,12 @@ def test_토큰이_비면_거부한다(tmp_path):
         Settings(_env_file=str(env))
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인**
+- [ ]  **Step 2: 테스트가 실패하는지 확인**
 
 Run: `python -m pytest tests/test_sqlmcp_config.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'sqlmcp'`
 
-- [ ] **Step 3: 패키지와 설정 구현**
+- [ ]  **Step 3: 패키지와 설정 구현**
 
 `sqlmcp/__init__.py`: 빈 파일.
 
@@ -177,7 +180,7 @@ include = ["app*", "sqlmcp*"]
 !.env.mcp.example
 ```
 
-- [ ] **Step 4: 설치와 실환경 설정 파일 생성**
+- [ ]  **Step 4: 설치와 실환경 설정 파일 생성**
 
 Run: `pip install -e .`
 Expected: `Successfully installed ... mcp-<version>`
@@ -191,14 +194,14 @@ Run: `cp .env.mcp.example .env.mcp`
 Run: `python -m pytest tests/test_sqlmcp_config.py -v`
 Expected: 2 passed
 
-- [ ] **Step 5: SDK API 확인**
+- [ ]  **Step 5: SDK API 확인**
 
 Run: `python -c "import mcp; from mcp.server.fastmcp import FastMCP; from mcp.client.streamable_http import streamablehttp_client; print(mcp.__file__)"`
 Expected: 오류 없이 경로 출력
 
 실패하면 설치된 `mcp` 버전에서 모듈 경로가 다르다는 뜻이다. `pip show mcp`로 버전을 확인하고 Task 5·6의 import 경로를 그 버전에 맞춰 조정한다. 계획의 나머지 구조는 그대로 유효하다.
 
-- [ ] **Step 6: 커밋**
+- [ ]  **Step 6: 커밋**
 
 ```bash
 git add sqlmcp/__init__.py sqlmcp/config.py .env.mcp.example .gitignore pyproject.toml tests/test_sqlmcp_config.py
@@ -210,10 +213,11 @@ git commit -m "feat: sqlmcp 패키지 뼈대와 전용 설정을 추가한다"
 ## Task 2: guard 모듈을 sqlmcp로 이동
 
 **Files:**
+
 - Move: `app/sqlgen/guard.py` → `sqlmcp/guard.py`
 - Modify: `tests/test_guard.py:3`, `app/pipeline.py:21`, `app/models.py`
 
-- [ ] **Step 1: 테스트 import를 먼저 바꿔 실패시킨다**
+- [ ]  **Step 1: 테스트 import를 먼저 바꿔 실패시킨다**
 
 `tests/test_guard.py:3`을 교체:
 
@@ -221,12 +225,12 @@ git commit -m "feat: sqlmcp 패키지 뼈대와 전용 설정을 추가한다"
 from sqlmcp.guard import inject_limit, validate
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인**
+- [ ]  **Step 2: 테스트가 실패하는지 확인**
 
 Run: `python -m pytest tests/test_guard.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'sqlmcp.guard'`
 
-- [ ] **Step 3: 파일 이동과 의존성 절단**
+- [ ]  **Step 3: 파일 이동과 의존성 절단**
 
 ```bash
 git mv app/sqlgen/guard.py sqlmcp/guard.py
@@ -257,7 +261,7 @@ from app.sqlgen import execute, generate
 from sqlmcp import guard
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [ ]  **Step 4: 테스트 통과 확인**
 
 Run: `python -m pytest -v`
 Expected: 전부 pass
@@ -265,7 +269,7 @@ Expected: 전부 pass
 Run: `python -c "import app.pipeline; import app.cli"`
 Expected: 오류 없음
 
-- [ ] **Step 5: 커밋**
+- [ ]  **Step 5: 커밋**
 
 ```bash
 git add -A sqlmcp app/sqlgen app/models.py app/pipeline.py tests/test_guard.py
@@ -277,12 +281,13 @@ git commit -m "refactor: guard 모듈을 sqlmcp 패키지로 옮긴다"
 ## Task 3: 업무 DB 커넥션과 실행 함수를 sqlmcp로 이동
 
 **Files:**
+
 - Create: `sqlmcp/db.py`, `sqlmcp/execute.py`
 - Delete: `app/sqlgen/execute.py`
 - Test: `tests/test_sqlmcp_db.py`
 - Modify: `app/db.py`, `app/cli.py`, `app/pipeline.py`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [ ]  **Step 1: 실패하는 테스트 작성**
 
 `tests/test_sqlmcp_db.py`:
 
@@ -316,12 +321,12 @@ def test_읽기는_동작한다():
         assert cur.fetchone()[0] == 1
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인**
+- [ ]  **Step 2: 테스트가 실패하는지 확인**
 
 Run: `python -m pytest tests/test_sqlmcp_db.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'sqlmcp.db'`
 
-- [ ] **Step 3: sqlmcp 쪽 구현**
+- [ ]  **Step 3: sqlmcp 쪽 구현**
 
 `sqlmcp/db.py`. `app/db.py`의 `biz_conn_readonly()`를 옮기되 `sqlmcp.config`를 쓴다. SQL_ECHO 디버그 커서는 앱 쪽 기능이므로 가져오지 않는다:
 
@@ -391,7 +396,7 @@ def run(sql: str) -> tuple[list[str], list[tuple]]:
 git rm app/sqlgen/execute.py
 ```
 
-- [ ] **Step 4: 앱 쪽 정리**
+- [ ]  **Step 4: 앱 쪽 정리**
 
 `app/db.py` — `biz_conn_readonly()` 함수 전체(데코레이터 포함)를 삭제한다. `meta_conn`, `biz_conn_collect`, `mask_dsn`, `dsn_user`, EchoCursor 관련은 모두 남긴다.
 
@@ -423,7 +428,7 @@ from app.db import dsn_user, mask_dsn, meta_conn
         ok = False
 ```
 
-- [ ] **Step 5: 테스트 통과 확인**
+- [ ]  **Step 5: 테스트 통과 확인**
 
 Run: `python -m pytest -v`
 Expected: 전부 pass (업무 DB가 없으면 `tests/test_sqlmcp_db.py`는 skip)
@@ -434,7 +439,7 @@ Expected: meta / biz(수집용) / Ollama 점검이 모두 출력된다
 Run: `python -m app.cli ask "서울 고객의 2025년 판매 실적"`
 Expected: 이전과 동일하게 SQL 생성·실행 (아직 MCP 경유 아님)
 
-- [ ] **Step 6: 커밋**
+- [ ]  **Step 6: 커밋**
 
 ```bash
 git add -A sqlmcp app/db.py app/cli.py app/pipeline.py app/sqlgen tests/test_sqlmcp_db.py
@@ -446,10 +451,11 @@ git commit -m "refactor: 업무 DB 커넥션과 SQL 실행을 sqlmcp로 옮긴�
 ## Task 4: run_query 오케스트레이션
 
 **Files:**
+
 - Create: `sqlmcp/query.py`
 - Test: `tests/test_query_contract.py`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [ ]  **Step 1: 실패하는 테스트 작성**
 
 `tests/test_query_contract.py`:
 
@@ -508,12 +514,12 @@ def test_행은_리스트의_리스트다():
     assert isinstance(r["rows"][0], list)
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인**
+- [ ]  **Step 2: 테스트가 실패하는지 확인**
 
 Run: `python -m pytest tests/test_query_contract.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'sqlmcp.query'`
 
-- [ ] **Step 3: 구현**
+- [ ]  **Step 3: 구현**
 
 `sqlmcp/query.py`:
 
@@ -573,12 +579,12 @@ def run_query(sql: str) -> dict:
     }
 ```
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [ ]  **Step 4: 테스트 통과 확인**
 
 Run: `python -m pytest tests/test_query_contract.py -v`
 Expected: 6 passed (업무 DB가 없으면 2 passed, 4 skipped)
 
-- [ ] **Step 5: 커밋**
+- [ ]  **Step 5: 커밋**
 
 ```bash
 git add sqlmcp/query.py tests/test_query_contract.py
@@ -590,10 +596,11 @@ git commit -m "feat: run_query 오케스트레이션과 계약 테스트를 추�
 ## Task 5: MCP 서버 (FastMCP + Bearer 인증)
 
 **Files:**
+
 - Create: `sqlmcp/server.py`
 - Test: `tests/test_sqlmcp_auth.py`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [ ]  **Step 1: 실패하는 테스트 작성**
 
 `tests/test_sqlmcp_auth.py`. ASGI 앱 전체를 띄우지 않고 미들웨어만 검증한다:
 
@@ -627,12 +634,12 @@ def test_헤더가_없으면_401이다():
     assert r.status_code == 401
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인**
+- [ ]  **Step 2: 테스트가 실패하는지 확인**
 
 Run: `python -m pytest tests/test_sqlmcp_auth.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'sqlmcp.server'`
 
-- [ ] **Step 3: 구현**
+- [ ]  **Step 3: 구현**
 
 `sqlmcp/server.py`:
 
@@ -699,12 +706,12 @@ if __name__ == "__main__":
 
 설치된 SDK 버전에 `mcp.streamable_http_app()`이 없으면 `python -c "from mcp.server.fastmcp import FastMCP; print([m for m in dir(FastMCP) if 'app' in m])"`로 동등한 ASGI 앱 팩토리 이름을 찾아 그 이름으로 교체한다. 도구 정의와 미들웨어는 그대로 쓴다.
 
-- [ ] **Step 4: 테스트 통과 확인**
+- [ ]  **Step 4: 테스트 통과 확인**
 
 Run: `python -m pytest tests/test_sqlmcp_auth.py -v`
 Expected: 3 passed
 
-- [ ] **Step 5: 서버 수동 기동 확인**
+- [ ]  **Step 5: 서버 수동 기동 확인**
 
 한 터미널에서:
 
@@ -718,7 +725,7 @@ Expected: `401`
 
 확인 후 서버를 Ctrl+C로 종료한다.
 
-- [ ] **Step 6: 커밋**
+- [ ]  **Step 6: 커밋**
 
 ```bash
 git add sqlmcp/server.py tests/test_sqlmcp_auth.py
@@ -730,11 +737,12 @@ git commit -m "feat: Bearer 인증이 붙은 MCP 서버를 추가한다"
 ## Task 6: 백엔드 MCP 클라이언트
 
 **Files:**
+
 - Create: `app/sqlgen/mcp_client.py`
 - Test: `tests/test_mcp_client.py`
 - Modify: `app/models.py`, `app/config.py`, `.env.example`, `.env`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [ ]  **Step 1: 실패하는 테스트 작성**
 
 `tests/test_mcp_client.py`. 서버 없이 오류 변환과 응답 매핑만 검증한다:
 
@@ -767,12 +775,12 @@ def test_응답_JSON을_QueryResult로_바꾼다():
     assert r.row_count == 1
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인**
+- [ ]  **Step 2: 테스트가 실패하는지 확인**
 
 Run: `python -m pytest tests/test_mcp_client.py -v`
 Expected: FAIL — `ImportError: cannot import name 'mcp_client' from 'app.sqlgen'`
 
-- [ ] **Step 3: 설정과 모델 추가**
+- [ ]  **Step 3: 설정과 모델 추가**
 
 > **실행 중 정정:** 이 세 설정(`sql_row_limit`, `sql_max_limit`, `sql_timeout_sec`)의 삭제는 **Task 7로 옮겼다.** `app/pipeline.py`가 아직 `sql_row_limit`/`sql_max_limit`를 쓰고 있어서, 여기서 지우면 커밋이 깨진 상태로 남는다. Task 6에서는 추가만 한다.
 
@@ -830,7 +838,7 @@ MCP_TIMEOUT_SEC=30
 
 `.env` 실물에도 같은 4개 항목을 추가하고, `MCP_AUTH_TOKEN`을 Task 1에서 `.env.mcp`에 넣은 값과 동일하게 맞춘다.
 
-- [ ] **Step 4: 클라이언트 구현**
+- [ ]  **Step 4: 클라이언트 구현**
 
 `app/sqlgen/mcp_client.py`:
 
@@ -894,7 +902,7 @@ def run_query(sql: str) -> QueryResult:
         )
 ```
 
-- [ ] **Step 5: 테스트와 실제 왕복 확인**
+- [ ]  **Step 5: 테스트와 실제 왕복 확인**
 
 Run: `python -m pytest tests/test_mcp_client.py -v`
 Expected: 2 passed
@@ -909,7 +917,7 @@ Expected: `QueryResult(ok=True, sql='SELECT 1 AS a LIMIT 100', columns=['a'], ro
 Run: `python -c "from app.sqlgen import mcp_client as m; m.settings.mcp_auth_token='wrong'; print(m.run_query('SELECT 1').error_stage)"`
 Expected: `transport`
 
-- [ ] **Step 6: 커밋**
+- [ ]  **Step 6: 커밋**
 
 ```bash
 git add app/sqlgen/mcp_client.py app/models.py app/config.py .env.example tests/test_mcp_client.py
@@ -921,10 +929,11 @@ git commit -m "feat: 백엔드용 MCP 클라이언트와 설정을 추가한다"
 ## Task 7: pipeline.ask 를 MCP 경유로 교체
 
 **Files:**
+
 - Modify: `app/pipeline.py`
 - Test: `tests/test_pipeline_branch.py`
 
-- [ ] **Step 1: 실패하는 테스트 작성**
+- [ ]  **Step 1: 실패하는 테스트 작성**
 
 `tests/test_pipeline_branch.py`:
 
@@ -1029,12 +1038,12 @@ def test_explain_외의_실패는_재생성하지_않는다(monkeypatch, stub, s
     assert generated == []
 ```
 
-- [ ] **Step 2: 테스트가 실패하는지 확인**
+- [ ]  **Step 2: 테스트가 실패하는지 확인**
 
 Run: `python -m pytest tests/test_pipeline_branch.py -v`
 Expected: FAIL — `AttributeError: module 'app.pipeline' has no attribute 'mcp_client'`
 
-- [ ] **Step 3: 모듈 docstring 과 import 정리**
+- [ ]  **Step 3: 모듈 docstring 과 import 정리**
 
 `app/pipeline.py` 상단 docstring의 재시도 정책에서 EXPLAIN 항목을 교체하고 한 줄 추가한다:
 
@@ -1057,7 +1066,7 @@ from app.sqlgen import generate, mcp_client
 - `.env.example`에서 `SQL_ROW_LIMIT`, `SQL_MAX_LIMIT`, `SQL_TIMEOUT_SEC` 세 줄을 삭제한다 (`COLLECT_TIMEOUT_SEC`는 유지). 이 세 값은 이제 `.env.mcp`에만 있다.
 - 삭제 후 `grep -rn "sql_row_limit\|sql_max_limit\|sql_timeout_sec" app/ tests/`가 아무것도 내지 않아야 한다 (`sqlmcp/`와 `tests/test_sqlmcp_config.py`의 동명 설정은 별개다 — 그쪽은 유지).
 
-- [ ] **Step 4: 실행부 교체**
+- [ ]  **Step 4: 실행부 교체**
 
 > **실행 중 정정:** 초판은 `labels` 딕셔너리를 최종 실패 분기 안에만 두었는데, 그러면 재생성 후 guard로 거부됐을 때 "안전 검증 거부" 대신 "SQL 검증 실패"가 나온다. 모듈 상수 `_STAGE_LABELS`(guard/explain/execute/transport)로 올려 두 분기가 공유한다. 호출 뒤 공통 처리(`trace["error_stage"]` 갱신과 `result.sql` 반영)도 `_record()` 헬퍼로 뺀다.
 
@@ -1103,7 +1112,7 @@ from app.sqlgen import generate, mcp_client
     return result
 ```
 
-- [ ] **Step 5: 테스트 통과 확인**
+- [ ]  **Step 5: 테스트 통과 확인**
 
 Run: `python -m pytest tests/test_pipeline_branch.py -v`
 Expected: 6 passed
@@ -1114,7 +1123,7 @@ Expected: 전부 pass
 Run: `grep -n "sqlmcp" app/pipeline.py`
 Expected: 출력 없음 (exit 1)
 
-- [ ] **Step 6: 실제 왕복 확인**
+- [ ]  **Step 6: 실제 왕복 확인**
 
 한 터미널에서 `python -m sqlmcp.server` 기동 후:
 
@@ -1126,7 +1135,7 @@ Expected: 선정 테이블·SQL·결과표가 이전과 동일하게 출력된�
 Run: `python -m app.cli ask "서울 고객의 2025년 판매 실적"`
 Expected: `SQL 실행 서버 연결 실패: ...` 가 빨간 글씨로 출력되고 exit 1. 트레이스백은 뜨지 않는다
 
-- [ ] **Step 7: 커밋**
+- [ ]  **Step 7: 커밋**
 
 ```bash
 git add app/pipeline.py tests/test_pipeline_branch.py
@@ -1138,9 +1147,10 @@ git commit -m "feat: SQL 실행을 MCP 서버 호출로 대체한다"
 ## Task 8: Streamlit UI 를 API 경유로 전환
 
 **Files:**
+
 - Modify: `app/ui.py`
 
-- [ ] **Step 1: 구현**
+- [ ]  **Step 1: 구현**
 
 `app/ui.py` 전체를 아래로 교체한다. `pipeline`을 import하지 않는 것이 이 태스크의 요점이다 — Streamlit 프로세스는 `MCP_AUTH_TOKEN`을 쓰지 않는다:
 
@@ -1190,12 +1200,12 @@ if st.button("질의", type="primary") and question:
 
 `api.py:22`가 이미 `[list(map(str, row)) for row in r.rows]`로 값을 문자열화해 내보내므로 `st.dataframe`에 `map(str, ...)`을 다시 씌우지 않는다.
 
-- [ ] **Step 2: 직접 import 가 사라졌는지 확인**
+- [ ]  **Step 2: 직접 import 가 사라졌는지 확인**
 
 Run: `grep -n "pipeline" app/ui.py`
 Expected: 출력 없음 (exit 1)
 
-- [ ] **Step 3: 화면 확인**
+- [ ]  **Step 3: 화면 확인**
 
 세 터미널에서 순서대로 `python -m sqlmcp.server`, `uvicorn app.api:api --port 8000`, `streamlit run app/ui.py`를 띄운다.
 
@@ -1205,7 +1215,7 @@ Expected: 선정 테이블·SQL·결과표·trace·컨텍스트가 이전과 동
 uvicorn만 내리고 다시 질의.
 Expected: `백엔드 호출 실패: ConnectError: ...` 가 표시되고 앱이 죽지 않는다
 
-- [ ] **Step 4: 커밋**
+- [ ]  **Step 4: 커밋**
 
 ```bash
 git add app/ui.py
@@ -1217,9 +1227,10 @@ git commit -m "refactor: Streamlit UI 를 백엔드 API 경유로 바꾼다"
 ## Task 9: CLI 를 API 경유로 전환하고 doctor 에 MCP 점검 추가
 
 **Files:**
+
 - Modify: `app/cli.py`
 
-- [ ] **Step 1: 공통 헬퍼 추가와 ask 교체**
+- [ ]  **Step 1: 공통 헬퍼 추가와 ask 교체**
 
 `app/cli.py`의 `ask` 명령 정의 바로 위에 헬퍼를 넣는다:
 
@@ -1270,7 +1281,7 @@ def ask(question: str, show_context: bool = typer.Option(False, "--show-context"
     console.print(f"{len(r['rows'])}행")
 ```
 
-- [ ] **Step 2: eval 교체**
+- [ ]  **Step 2: eval 교체**
 
 `eval_cmd` 안의 `from app.pipeline import ask as run_ask` 줄을 삭제한다 (`from app.pipeline import retrieve`는 남긴다). `--retrieval-only`는 메타 DB만 쓰므로 지금처럼 `retrieve()`를 직접 호출한다. `else:` 분기만 교체한다:
 
@@ -1292,7 +1303,7 @@ def ask(question: str, show_context: bool = typer.Option(False, "--show-context"
             note = (r["error"] or "")[:40]
 ```
 
-- [ ] **Step 3: doctor 에 MCP 점검 추가**
+- [ ]  **Step 3: doctor 에 MCP 점검 추가**
 
 `doctor()` 상단 DSN 출력 아래에 한 줄 덧붙인다:
 
@@ -1322,7 +1333,7 @@ biz 점검과 Ollama 점검 사이에 MCP 도달 확인을 넣는다. 인증 없
 
 `doctor()` 뒷부분의 Ollama 점검이 이미 `import httpx`를 하고 있다면 중복 import를 지운다.
 
-- [ ] **Step 4: 확인**
+- [ ]  **Step 4: 확인**
 
 `python -m sqlmcp.server` 와 `uvicorn app.api:api --port 8000` 을 띄운 상태에서:
 
@@ -1341,7 +1352,7 @@ Expected: 8행 표 + `SQL 성공 7/8`
 Run: `grep -n "from app.pipeline import ask" app/cli.py`
 Expected: 출력 없음 (exit 1)
 
-- [ ] **Step 5: 커밋**
+- [ ]  **Step 5: 커밋**
 
 ```bash
 git add app/cli.py
@@ -1353,10 +1364,11 @@ git commit -m "refactor: CLI ask/eval 을 API 경유로 바꾸고 doctor 에 MCP
 ## Task 10: 기동 스크립트와 문서
 
 **Files:**
+
 - Create: `scripts/run.ps1`
 - Modify: `README.md`, `docs/ARCHITECTURE.md`
 
-- [ ] **Step 1: 기동 스크립트 작성**
+- [ ]  **Step 1: 기동 스크립트 작성**
 
 `scripts/run.ps1`:
 
@@ -1401,7 +1413,7 @@ try {
 }
 ```
 
-- [ ] **Step 2: 스크립트 확인**
+- [ ]  **Step 2: 스크립트 확인**
 
 Run: `powershell -ExecutionPolicy Bypass -File scripts/run.ps1 api`
 Expected: `OK sqlmcp (401)` → `OK uvicorn (200)` → `API 준비 완료.`
@@ -1411,7 +1423,7 @@ Ctrl+C로 종료한 뒤 남은 프로세스가 없는지 확인한다:
 Run: `powershell -Command "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Select-Object ProcessId,CommandLine"`
 Expected: `sqlmcp.server` 나 `uvicorn app.api:api` 를 실행 중인 프로세스가 없다
 
-- [ ] **Step 3: README 갱신**
+- [ ]  **Step 3: README 갱신**
 
 `README.md`의 "FastAPI로 띄우기"와 "Streamlit UI" 두 블록을 아래 하나로 교체한다:
 
@@ -1443,7 +1455,7 @@ python -m app.cli eval                                # 백엔드 API 필요
 python -m app.cli eval --retrieval-only               # 검색만 평가. 백엔드 불필요
 ```
 
-- [ ] **Step 4: ARCHITECTURE.md 갱신**
+- [ ]  **Step 4: ARCHITECTURE.md 갱신**
 
 `docs/ARCHITECTURE.md`의 다음 네 곳을 고친다.
 
@@ -1484,7 +1496,7 @@ python -m app.cli eval --retrieval-only               # 검색만 평가. 백엔
 "## 5. API / UI" 절의 `ui.py` 설명에서 "API를 거치지 않고 `pipeline`을 직접 import해서"를
 "백엔드 `/ask` 를 호출해서"로 고친다.
 
-- [ ] **Step 5: 전체 검증**
+- [ ]  **Step 5: 전체 검증**
 
 Run: `python -m pytest -v`
 Expected: 전부 pass
@@ -1497,7 +1509,7 @@ Expected: 분리 전과 동일한 `평균 Recall 0.833   평균 Precision 0.688 
 Run: `grep -rn "BIZ_DSN\|biz_conn" app/api.py app/pipeline.py app/ui.py`
 Expected: 출력 없음 (exit 1) — 질문 처리 경로에 업무 DB 접근이 남아 있지 않다
 
-- [ ] **Step 6: 커밋**
+- [ ]  **Step 6: 커밋**
 
 ```bash
 git add scripts/run.ps1 README.md docs/ARCHITECTURE.md
@@ -1508,7 +1520,7 @@ git commit -m "docs: MCP 서버 분리에 맞춰 기동 스크립트와 문서�
 
 ## 완료 기준 (설계 문서 10절)
 
-- [ ] `tests/questions.yaml` 8문항 `eval` 결과가 분리 전과 동일하다 — Recall 0.833 / Precision 0.688 / SQL 7/8 (Task 10 Step 5)
-- [ ] uvicorn 프로세스에서 업무 DB로 나가는 psycopg 커넥션이 0건이다 (Task 10 Step 5의 grep)
-- [ ] `MCP_AUTH_TOKEN` 없이 `/mcp`를 호출하면 401 (Task 5 Step 5)
-- [ ] `sqlmcp` 서버를 내린 상태에서 질문하면 `AskResult.error`가 transport 오류를 담고 프로세스가 죽지 않는다 (Task 7 Step 6)
+- [ ]  `tests/questions.yaml` 8문항 `eval` 결과가 분리 전과 동일하다 — Recall 0.833 / Precision 0.688 / SQL 7/8 (Task 10 Step 5)
+- [ ]  uvicorn 프로세스에서 업무 DB로 나가는 psycopg 커넥션이 0건이다 (Task 10 Step 5의 grep)
+- [ ]  `MCP_AUTH_TOKEN` 없이 `/mcp`를 호출하면 401 (Task 5 Step 5)
+- [ ]  `sqlmcp` 서버를 내린 상태에서 질문하면 `AskResult.error`가 transport 오류를 담고 프로세스가 죽지 않는다 (Task 7 Step 6)
