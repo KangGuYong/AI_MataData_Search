@@ -11,6 +11,7 @@ from sqlmcp.config import settings
 @contextmanager
 def biz_conn_readonly():
     """항상 READ ONLY 트랜잭션이며 커밋하지 않는다."""
+    # app 쪽 _cursor_kw()/SQL_ECHO 커서 플러밍은 의도적으로 가져오지 않는다.
     with psycopg.connect(settings.biz_dsn, autocommit=False) as conn:
         conn.read_only = True
         try:

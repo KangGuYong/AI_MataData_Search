@@ -2,17 +2,9 @@ import psycopg
 import pytest
 
 from sqlmcp.db import biz_conn_readonly
+from tests.conftest import needs_db
 
-
-def _db_available() -> bool:
-    try:
-        with biz_conn_readonly():
-            return True
-    except Exception:
-        return False
-
-
-pytestmark = pytest.mark.skipif(not _db_available(), reason="업무 DB에 연결할 수 없음")
+pytestmark = needs_db
 
 
 def test_쓰기는_거부된다():
