@@ -25,9 +25,12 @@ CLI      ─HTTP─┘        │
 MCP를 호출하는 프로세스는 **uvicorn(FastAPI) 하나뿐**이다. Streamlit과 CLI는
 `API_URL`만 알고 `MCP_URL`/`MCP_AUTH_TOKEN`을 갖지 않는다.
 
+수집(`collect`/`profile`)은 CLI 프로세스에서만 실행되며 여기서만 `BIZ_DSN`을 쓴다.
+`.env`가 한 벌이라 uvicorn·streamlit도 값 자체는 읽어 들이지만 커넥션을 열지 않는다.
+
 | | uvicorn | streamlit / cli(ask, eval) | sqlmcp |
 |---|---|---|---|
-| 아는 DSN | `META_DSN`, `BIZ_DSN`(수집용) | 없음 | `BIZ_DSN` |
+| 아는 DSN | `META_DSN` | 없음 | `BIZ_DSN` |
 | MCP 토큰 | 보유 | 없음 | 보유 |
 | 하는 일 | 검색·컨텍스트·LLM·재생성 판단 | 화면/출력 | 검증→EXPLAIN→실행 |
 
@@ -145,8 +148,13 @@ MCP 호출 횟수는 최대 2회(초회 + 재생성 1회)로 현재 EXPLAIN 재�
 
 ### `app/cli.py`
 
-`ask`, `eval`을 API 경유로 바꾼다. `search`/`context`/`collect`/`enrich`/`embed`/`doctor`는
-메타 DB만 쓰므로 변경하지 않는다.
+`ask`, 그리고 `eval`의 기본 경로(LLM+SQL 실행)를 API 경유로 바꾼다.
+`eval --retrieval-only`는 검색만 평가하므로 지금처럼 `pipeline.retrieve()`를 직접 호출한다
+— 메타 DB만 쓰고 API·MCP가 필요 없다.
+
+`search`/`context`/`collect`/`enrich`/`embed`/`doctor`는 변경하지 않는다.
+`doctor`는 업무 DB 점검 항목을 유지하되, MCP 서버 도달 여부(`/mcp` 401 응답 확인) 점검을
+추가한다.
 
 ## 7. 설정
 
@@ -210,8 +218,7 @@ README의 실행 절차를 이것으로 교체한다.
 ## 10. 검증 기준
 
 - `tests/questions.yaml` 8문항 `eval` 결과가 분리 전과 동일하다.
-- 앱 프로세스(uvicorn)에서 업무 DB로 나가는 psycopg 커넥션은 수집 명령을 실행할 때만
-  발생한다.
+- uvicorn 프로세스에서 업무 DB로 나가는 psycopg 커넥션이 0건이다 (질문 처리 전 구간).
 - `MCP_AUTH_TOKEN` 없이 `/mcp`를 호출하면 401.
 - `sqlmcp` 서버를 내린 상태에서 질문하면 `AskResult.error`가 transport 오류를 담고
   프로세스가 죽지 않는다.
