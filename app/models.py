@@ -57,6 +57,9 @@ class AskResult:
     context: str = ""
     sql: str | None = None
     columns: list[str] = field(default_factory=list)
+    # NOTE: app/pipeline.py가 sqlmcp.execute.run()으로 채우는 동안은 실제로
+    # list[tuple]이 들어온다. Task 7에서 pipeline이 MCP 클라이언트로 옮겨가면
+    # 이 주석은 사라지고 표기가 정확해진다.
     rows: list[list] = field(default_factory=list)
     error: str | None = None
     trace: dict = field(default_factory=dict)
