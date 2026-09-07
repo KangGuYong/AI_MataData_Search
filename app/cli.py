@@ -75,6 +75,8 @@ def doctor() -> None:
 
     import httpx
 
+    # 이 점검은 뭔가 응답하고 있고 인증이 켜져 있다는 것만 확인한다.
+    # MCP 서버가 실제로 biz DB에 접근 가능한지, 토큰이 백엔드와 일치하는지는 증명하지 않는다.
     try:
         r = httpx.get(settings.mcp_url, timeout=5)
         if r.status_code == 401:
@@ -297,20 +299,26 @@ def eval_cmd(
             actual = {n.split(".")[-1] for n in names}
             sql_mark, note = "-", ""
         else:
+            # app/pipeline.py의 ask()가 LLM 실패를 AskResult.error로 흡수하는 것과
+            # 같은 이유로, 여기서도 백엔드 호출 실패를 이 문항의 SQL 실패로 기록하고
+            # 다음 문항으로 계속 진행한다 (한 문항의 실패로 평가 전체를 중단하지 않는다).
             try:
                 r = _ask_api(case["question"])
             except Exception as e:  # noqa: BLE001
-                console.print(f"[red]백엔드 호출 실패[/] {type(e).__name__}: {e}")
-                raise typer.Exit(1)
-            actual = {n.split(".")[-1] for n in r["tables"]}
-            # 무관 질문은 SQL을 만들지 않는 것이 정답이다.
-            if expected:
-                ok = r["error"] is None and r["sql"] is not None
+                actual = set()
+                ok = False
+                sql_mark = "X"
+                note = f"백엔드 호출 실패: {type(e).__name__}"[:40]
             else:
-                ok = r["sql"] is None
+                actual = {n.split(".")[-1] for n in r["tables"]}
+                # 무관 질문은 SQL을 만들지 않는 것이 정답이다.
+                if expected:
+                    ok = r["error"] is None and r["sql"] is not None
+                else:
+                    ok = r["sql"] is None
+                sql_mark = "O" if ok else "X"
+                note = (r["error"] or "")[:40]
             sql_ok += int(ok)
-            sql_mark = "O" if ok else "X"
-            note = (r["error"] or "")[:40]
 
         if not expected:
             recall = 1.0 if not actual else 0.0
