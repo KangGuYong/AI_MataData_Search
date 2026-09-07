@@ -37,6 +37,9 @@ def run_query(sql: str) -> dict:
     if err:
         return _fail("explain", err, safe_sql)
 
+    # explain()은 오류를 문자열로 돌려주지만 run()은 예외를 그대로 던진다.
+    # EXPLAIN을 통과한 뒤 실행에서 깨지는 경우(타임아웃 등)는 드물고, run()의
+    # 정상 반환값은 컬럼/행이어야 하므로 오류 표현을 섞지 않는다. 여기서 받는다.
     try:
         columns, rows = execute.run(safe_sql)
     except Exception as e:  # noqa: BLE001
