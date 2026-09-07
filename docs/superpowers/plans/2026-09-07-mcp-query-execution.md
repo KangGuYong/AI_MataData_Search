@@ -774,7 +774,9 @@ Expected: FAIL — `ImportError: cannot import name 'mcp_client' from 'app.sqlge
 
 - [ ] **Step 3: 설정과 모델 추가**
 
-`app/config.py` — `# --- SQL 실행 ---` 블록에서 `sql_row_limit`, `sql_max_limit`, `sql_timeout_sec` 세 줄을 삭제한다 (`collect_timeout_sec`는 수집이 계속 쓰므로 남긴다). 같은 블록에 추가:
+> **실행 중 정정:** 이 세 설정(`sql_row_limit`, `sql_max_limit`, `sql_timeout_sec`)의 삭제는 **Task 7로 옮겼다.** `app/pipeline.py`가 아직 `sql_row_limit`/`sql_max_limit`를 쓰고 있어서, 여기서 지우면 커밋이 깨진 상태로 남는다. Task 6에서는 추가만 한다.
+
+`app/config.py` — `# --- SQL 실행 ---` 블록에 추가한다:
 
 ```python
     # 백엔드 API. Streamlit / CLI 가 이 주소로 질문을 보낸다.
@@ -812,7 +814,7 @@ class QueryResult:
     rows: list[list] = field(default_factory=list)
 ```
 
-`.env.example` — `# --- SQL 실행 ---` 블록에서 `SQL_ROW_LIMIT`, `SQL_MAX_LIMIT`, `SQL_TIMEOUT_SEC` 세 줄을 지우고(`COLLECT_TIMEOUT_SEC`는 유지) 새 블록을 추가한다:
+`.env.example` — 새 블록을 추가한다 (`SQL_ROW_LIMIT`/`SQL_MAX_LIMIT`/`SQL_TIMEOUT_SEC` 삭제는 위 정정대로 Task 7에서 한다):
 
 ```
 # --- 백엔드 / MCP ---
@@ -1048,6 +1050,12 @@ from app.sqlgen import generate, mcp_client
 ```
 
 (Task 2·3에서 넣었던 `from sqlmcp import execute, guard` 줄을 삭제한다. 이제 `app`은 `sqlmcp`를 import하지 않는다.)
+
+**Task 6에서 미뤄진 설정 삭제를 여기서 한다.** `ask()` 교체로 `settings.sql_row_limit`/`sql_max_limit`의 마지막 사용처가 사라지므로:
+
+- `app/config.py`의 `# --- SQL 실행 ---` 블록에서 `sql_row_limit`, `sql_max_limit`, `sql_timeout_sec` 세 줄을 삭제한다 (`collect_timeout_sec`는 수집이 계속 쓰므로 남긴다). Task 6이 남긴 NOTE 주석도 함께 지운다.
+- `.env.example`에서 `SQL_ROW_LIMIT`, `SQL_MAX_LIMIT`, `SQL_TIMEOUT_SEC` 세 줄을 삭제한다 (`COLLECT_TIMEOUT_SEC`는 유지). 이 세 값은 이제 `.env.mcp`에만 있다.
+- 삭제 후 `grep -rn "sql_row_limit\|sql_max_limit\|sql_timeout_sec" app/ tests/`가 아무것도 내지 않아야 한다 (`sqlmcp/`와 `tests/test_sqlmcp_config.py`의 동명 설정은 별개다 — 그쪽은 유지).
 
 - [ ] **Step 4: 실행부 교체**
 
