@@ -29,10 +29,11 @@ cp .env.mcp.example .env.mcp
 ## 초기 구축 순서
 
 아래 순서대로 실행합니다. `enrich`는 LLM으로 모든 컬럼의 업무명/설명/동의어를 생성하므로 4테이블
-기준으로도 약 14분이 걸립니다.
+기준으로도 약 14분이 걸립니다. `doctor`는 MCP 서버에도 핑을 보내므로 먼저 별도 터미널에서
+`python -m sqlmcp.server`를 띄워 둡니다.
 
 ```bash
-python -m app.cli doctor       # DB 연결, 확장 설치 여부 점검
+python -m app.cli doctor       # DB/Ollama 연결, 확장 설치, MCP 서버 응답 점검
 python -m app.cli init-db      # meta 스키마 생성 (meta 테이블 전체를 재생성하므로 주의)
 python -m app.cli fixture      # biz 테스트 테이블/더미 데이터 생성 (기존 biz 테이블 삭제)
 python -m app.cli embed-test   # 임베딩 클라이언트 헬스체크
