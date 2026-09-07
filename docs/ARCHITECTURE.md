@@ -7,21 +7,30 @@
 | 모듈 | 역할 |
 |---|---|
 | `config.py` | 설정(DB DSN, LLM/임베딩, 검색 튜닝 파라미터) |
-| `db.py` | 메타/업무 DB 커넥션 3종 |
+| `db.py` | 메타 DB 커넥션 + 수집용 업무 DB 커넥션 |
 | `collect/` | 업무 DB 스키마 수집 → 메타 DB 적재 |
 | `search/` | 질문 → 관련 테이블 검색 |
-| `sqlgen/` | LLM SQL 생성·검증·실행 |
+| `sqlgen/` | LLM SQL 생성 (`generate.py`). 검증·LIMIT·실행은 `sqlmcp/`로 이전 |
+| `sqlgen/mcp_client.py` | MCP 서버 호출 (sync 경계) |
 | `pipeline.py` | `retrieve()`+`ask()` 전체 오케스트레이션 |
 | `api.py` / `ui.py` | FastAPI / Streamlit |
 | `cli.py` | Typer CLI |
 
+`sqlmcp/` 는 별도 프로세스로 도는 MCP 서버다. 업무 DB 자격증명(`BIZ_DSN`)과 안전 검증
+(AST 검증 · LIMIT 주입 · READ ONLY 실행)을 독점하며 `run_query` 도구 하나를 노출한다.
+이 서버를 호출하는 것은 uvicorn(FastAPI) 프로세스뿐이고, Streamlit·CLI 는 백엔드 API 를
+거친다.
+
 ## 1. DB 접근
 
 - `meta_conn()` (`app/db.py:16`) — 메타 DB, 쓰기 가능. pgvector 확장 등록.
-- `biz_conn_readonly()` (`app/db.py:29`) — 업무 DB, 항상 READ ONLY 트랜잭션 + `statement_timeout`(`SQL_TIMEOUT_SEC`). 커밋 없이 항상 롤백. SQL 실행 시 사용하는 안전 경로.
-- `biz_conn_collect()` (`app/db.py:44`) — 업무 DB, 프로파일링용으로 타임아웃을 길게(`COLLECT_TIMEOUT_SEC`) 잡은 별도 커넥션.
+- `sqlmcp/db.py` `biz_conn_readonly()` — 업무 DB, 항상 READ ONLY 트랜잭션 +
+  `statement_timeout`(`.env.mcp` 의 `SQL_TIMEOUT_SEC`). 커밋 없이 항상 롤백.
+  **MCP 서버 프로세스에만 존재한다.**
+- `biz_conn_collect()` (`app/db.py:44`) — 업무 DB, 프로파일링용으로 타임아웃을 길게(`COLLECT_TIMEOUT_SEC`) 잡은 별도 커넥션. 앱의 `.env`(`BIZ_DSN`)를 사용한다.
 
-접속 정보는 `.env`의 `META_DSN`/`BIZ_DSN`(PostgreSQL DSN)으로 설정한다 (`app/config.py:15-18`).
+메타 DB 접속 정보는 `.env`의 `META_DSN`으로, 수집용 업무 DB 접속 정보는 `.env`의 `BIZ_DSN`으로
+설정한다 (`app/config.py`). SQL 실행용 업무 DB 접속 정보(`BIZ_DSN`)는 `.env.mcp`에 별도로 설정한다.
 
 ## 2. 수집(collect) 파이프라인 — 업무 DB를 메타 DB로 미러링
 
@@ -48,18 +57,25 @@ CLI 실행 순서: `collect` → `enrich` → `embed`
 
 1. LLM이 컨텍스트 기반으로 SQL 생성 → `sqlglot`으로 SQL만 추출(`extract_sql`).
 2. `looks_like_sql` 검증 실패 시 1회만 재생성.
-3. **`sqlgen/guard.py`** `validate()` — sqlglot AST 기반 화이트리스트 검증. 단일 SELECT/WITH만 허용, INSERT/UPDATE/DDL/dblink/pg_sleep 등 금지 함수·시스템 카탈로그(`pg_*`, `information_schema` 등) 차단. 정규식 블랙리스트가 아니라 AST만 신뢰.
-4. **`sqlgen/guard.py`** `inject_limit()` — 최상위 SELECT에 LIMIT이 없으면 `sql_row_limit`(100) 주입, 있으면 `sql_max_limit`(1000) 초과 시 캡.
-5. **`sqlgen/execute.py`** — `explain()`으로 `biz_conn_readonly`에서 EXPLAIN 선검증(실패 시 오류 메시지를 붙여 1회 재생성) 후 통과하면 `run()`으로 READ ONLY 트랜잭션에서 실행하고 항상 롤백.
+3. `pipeline.ask()` 가 생성된 SQL 을 `sqlgen/mcp_client.run_query()` 로 MCP 서버에 넘긴다.
+4. 서버(`sqlmcp/query.py`)가 `guard.validate` → `guard.inject_limit` → `EXPLAIN` → 실행
+   순으로 처리하고 `{ok, sql, columns, rows, row_count, error, error_stage}` 를 돌려준다.
+5. `error_stage == "explain"` 일 때만 오류 메시지를 붙여 1회 재생성한다.
+   `guard` / `execute` / `transport` 는 재생성 없이 종료한다.
 
 ## 5. API / UI
 
 - **`api.py`** — `POST /ask` → `pipeline.ask()` 호출해 question/tables/sql/columns/rows/error/context/trace를 JSON으로 반환. `GET /metadata/tables`는 메타 DB에서 테이블 목록+컬럼 수 조회.
-- **`ui.py`** — Streamlit. API를 거치지 않고 `pipeline`을 직접 import해서 `run_ask()` 호출 → 선정 테이블/SQL/결과표/trace(JSON)/컨텍스트를 expander로 표시.
+- **`ui.py`** — Streamlit. 백엔드 `/ask` 를 호출해서 선정 테이블/SQL/결과표/trace(JSON)/컨텍스트를 expander로 표시.
 
 ## 6. CLI (`app/cli.py`)
 
-`doctor`(DB/Ollama/확장 점검), `init-db`, `fixture`(더미 biz 데이터), `embed-test`, `collect`, `enrich`, `embed`, `search`(경로별 히트 확인), `context`(LLM 컨텍스트 미리보기), `ask`(질문→SQL 실행), `eval`(`tests/questions.yaml` 평가셋 일괄 실행, `--retrieval-only`로 LLM 없이 검색만 평가, Recall/Precision/SQL 성공률을 표로 출력).
+`doctor`(DB/Ollama 연결과 확장 설치 상태 점검. MCP 서버에도 인증 없이 요청을 보내 401 이 오는지
+확인한다), `init-db`, `fixture`(더미 biz 데이터), `embed-test`, `collect`, `enrich`, `embed`,
+`search`(경로별 히트 확인), `context`(LLM 컨텍스트 미리보기), `ask`(백엔드 `/ask` 를 호출해 질문 →
+SQL 생성 → 실행), `eval`(`tests/questions.yaml` 평가셋 일괄 실행, `--retrieval-only`면 `pipeline.retrieve()`
+를 직접 호출해 백엔드 없이 검색만 평가, 그 외에는 백엔드 `/ask` 를 호출해 SQL 실행까지 포함,
+Recall/Precision/SQL 성공률을 표로 출력).
 
 ## 핵심 설계 포인트
 
