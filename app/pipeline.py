@@ -13,13 +13,28 @@ from app.config import settings
 from app.db import meta_conn
 from app.embedding.base import get_embedding_client
 from app.llm.base import get_llm_client
-from app.models import AskResult
+from app.models import AskResult, QueryResult
 from app.search import context as ctx
 from app.search import keyword, selectivity, value, vector
 from app.search.fusion import fuse
 from app.search.graph import find_join_paths, load_edges
 from app.search.tokenize import tokenize
 from app.sqlgen import generate, mcp_client
+
+# MCP 서버가 어느 단계에서 멈췄는지를 사용자 문구로 옮긴다.
+_STAGE_LABELS = {
+    "guard": "안전 검증 거부",
+    "explain": "SQL 검증 실패",
+    "execute": "실행 실패",
+    "transport": "SQL 실행 서버 연결 실패",
+}
+
+
+def _record(res: QueryResult, result: AskResult, trace: dict) -> None:
+    """MCP 응답에서 trace와 result.sql을 갱신한다. 두 번의 시도가 같은 처리를 한다."""
+    trace["error_stage"] = res.error_stage
+    if res.sql:
+        result.sql = res.sql
 
 
 def retrieve(question: str) -> tuple[str, list[int], list[str], dict]:
@@ -114,9 +129,7 @@ def ask(question: str) -> AskResult:
     result.sql = sql
 
     res = mcp_client.run_query(sql)
-    trace["error_stage"] = res.error_stage
-    if res.sql:
-        result.sql = res.sql
+    _record(res, result, trace)
 
     # EXPLAIN 실패만 재생성한다. guard 거부를 다시 넣으면 모델이 게이트를
     # 통과하는 변형을 찾도록 유도할 뿐이고, 실행 실패와 통신 실패는
@@ -132,21 +145,17 @@ def ask(question: str) -> AskResult:
 
         result.sql = retry
         res = mcp_client.run_query(retry)
-        trace["error_stage"] = res.error_stage
-        if res.sql:
-            result.sql = res.sql
+        _record(res, result, trace)
         if not res.ok:
             trace["explain_error_2"] = res.error
-            result.error = f"SQL 검증 실패(재시도 포함 2회): {res.error}"
+            label = _STAGE_LABELS.get(res.error_stage, "실패")
+            result.error = f"{label}(재시도 포함 2회): {res.error}"
             return result
 
     if not res.ok:
-        labels = {
-            "guard": "안전 검증 거부",
-            "execute": "실행 실패",
-            "transport": "SQL 실행 서버 연결 실패",
-        }
-        result.error = f"{labels.get(res.error_stage, '실패')}: {res.error}"
+        # error_stage가 None인 경우는 res.ok가 True일 때뿐이고, 그 외 모든
+        # 단계는 _STAGE_LABELS에 키가 있으므로 이 fallback은 도달 불가능하다.
+        result.error = f"{_STAGE_LABELS.get(res.error_stage, '실패')}: {res.error}"
         return result
 
     result.columns = res.columns

@@ -78,8 +78,51 @@ def test_explain이_두_번_실패하면_포기한다(monkeypatch, stub):
 
     r = pipeline.ask("질문")
 
+    assert r.error.startswith("SQL 검증 실패")
+    assert "재시도 포함 2회" in r.error
     assert "컬럼 없음" in r.error
     assert len(calls) == 2
+
+
+def test_explain_실패_후_재시도가_guard로_거부되면_guard_문구를_유지한다(monkeypatch, stub):
+    """두 리뷰어가 지적한 회귀: 재시도 실패 사유가 EXPLAIN이 아니어도
+    문구는 실제 실패 단계(guard)를 반영해야 한다."""
+    calls, generated = stub
+    responses = [
+        QueryResult(ok=False, sql="SELECT 1", error="컬럼 없음", error_stage="explain"),
+        QueryResult(ok=False, sql="SELECT 2", error="위험한 구문", error_stage="guard"),
+    ]
+    monkeypatch.setattr(
+        pipeline.mcp_client, "run_query",
+        lambda sql: calls.append(sql) or responses.pop(0),
+    )
+
+    r = pipeline.ask("질문")
+
+    assert r.error.startswith("안전 검증 거부")
+    assert "재시도 포함 2회" in r.error
+    assert len(calls) == 2
+    assert len(generated) == 1
+
+
+def test_재시도_중_regenerate가_실패하면_LLM_호출_실패를_반환한다(monkeypatch, stub):
+    calls, generated = stub
+    monkeypatch.setattr(
+        pipeline.mcp_client, "run_query",
+        lambda sql: calls.append(sql)
+        or QueryResult(ok=False, sql=sql, error="컬럼 없음", error_stage="explain"),
+    )
+
+    def _regenerate_실패(llm, ctx, sql, err):
+        raise RuntimeError("연결 끊김")
+
+    monkeypatch.setattr(pipeline.generate, "regenerate", _regenerate_실패)
+
+    r = pipeline.ask("질문")
+
+    assert "LLM 호출 실패" in r.error
+    assert "llm_error" in r.trace
+    assert len(calls) == 1
 
 
 @pytest.mark.parametrize("stage", ["guard", "execute", "transport"])
