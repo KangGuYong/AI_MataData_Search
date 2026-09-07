@@ -24,7 +24,8 @@
 | `sqlmcp/db.py` | `biz_conn_readonly()` — READ ONLY + statement_timeout + 항상 rollback |
 | `sqlmcp/execute.py` | `explain(sql)` / `run(sql)` — DB 왕복 2종 |
 | `sqlmcp/query.py` | `run_query(sql) -> dict` — guard→inject→explain→run 오케스트레이션. HTTP·MCP 무관 |
-| `sqlmcp/server.py` | FastMCP 도구 등록, Bearer 미들웨어, uvicorn 기동 |
+| `sqlmcp/auth.py` | Bearer 미들웨어. 설정·DB 의존이 없어 단독으로 테스트된다 |
+| `sqlmcp/server.py` | FastMCP 도구 등록, 앱 조립, uvicorn 기동 |
 | `app/sqlgen/mcp_client.py` | sync 경계. `run_query(sql) -> QueryResult` |
 | `scripts/run.ps1` | sqlmcp → uvicorn → streamlit 순차 기동/종료 |
 | `.env.mcp.example` | 서버 설정 예시 |
