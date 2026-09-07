@@ -1059,6 +1059,8 @@ from app.sqlgen import generate, mcp_client
 
 - [ ] **Step 4: 실행부 교체**
 
+> **실행 중 정정:** 초판은 `labels` 딕셔너리를 최종 실패 분기 안에만 두었는데, 그러면 재생성 후 guard로 거부됐을 때 "안전 검증 거부" 대신 "SQL 검증 실패"가 나온다. 모듈 상수 `_STAGE_LABELS`(guard/explain/execute/transport)로 올려 두 분기가 공유한다. 호출 뒤 공통 처리(`trace["error_stage"]` 갱신과 `result.sql` 반영)도 `_record()` 헬퍼로 뺀다.
+
 `ask()`에서 `verdict = guard.validate(sql)`부터 함수 끝(`return result`)까지를 통째로 아래로 바꾼다:
 
 ```python
@@ -1088,16 +1090,12 @@ from app.sqlgen import generate, mcp_client
             result.sql = res.sql
         if not res.ok:
             trace["explain_error_2"] = res.error
-            result.error = f"SQL 검증 실패(재시도 포함 2회): {res.error}"
+            label = _STAGE_LABELS.get(res.error_stage, "실패")
+            result.error = f"{label}(재시도 포함 2회): {res.error}"
             return result
 
     if not res.ok:
-        labels = {
-            "guard": "안전 검증 거부",
-            "execute": "실행 실패",
-            "transport": "SQL 실행 서버 연결 실패",
-        }
-        result.error = f"{labels.get(res.error_stage, '실패')}: {res.error}"
+        result.error = f"{_STAGE_LABELS.get(res.error_stage, '실패')}: {res.error}"
         return result
 
     result.columns = res.columns
