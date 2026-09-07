@@ -60,12 +60,6 @@ class Settings(BaseSettings):
     trgm_min_similarity: float = 0.7
 
     # SQL 실행
-    # NOTE: sql_row_limit / sql_max_limit 은 app/pipeline.py(Task 7 대상)가
-    # 여전히 참조하고 있어 이번 작업에서는 삭제하지 않는다. sql_timeout_sec은
-    # pipeline.py 에서도 쓰이지 않지만 세 값을 묶어 다루던 블록이라 함께 남겨둔다.
-    sql_row_limit: int = 100
-    sql_max_limit: int = 1000
-    sql_timeout_sec: int = Field(default=10, gt=0)
     collect_timeout_sec: int = Field(default=120, gt=0)
 
     # 백엔드 API. Streamlit / CLI 가 이 주소로 질문을 보낸다.

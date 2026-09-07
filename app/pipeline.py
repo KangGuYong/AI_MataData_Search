@@ -4,7 +4,8 @@
 - 응답이 SQL 형태조차 아니면 (looks_like_sql False) 1회만 재생성한다.
 - 안전 게이트(guard) 거부는 재시도하지 않는다. 거부된 SQL을 다시 넣으면
   모델이 게이트를 통과하는 변형을 찾도록 유도할 뿐이다.
-- EXPLAIN 실패는 오류 메시지를 붙여 1회만 재생성한다.
+- EXPLAIN 실패(MCP error_stage="explain")는 오류 메시지를 붙여 1회만 재생성한다.
+- guard 거부 / 실행 실패 / MCP 통신 실패는 재생성하지 않는다.
 - 검색 결과가 없으면 LLM을 아예 호출하지 않고 즉시 반환한다.
 """
 
@@ -18,8 +19,7 @@ from app.search import keyword, selectivity, value, vector
 from app.search.fusion import fuse
 from app.search.graph import find_join_paths, load_edges
 from app.search.tokenize import tokenize
-from app.sqlgen import generate
-from sqlmcp import execute, guard
+from app.sqlgen import generate, mcp_client
 
 
 def retrieve(question: str) -> tuple[str, list[int], list[str], dict]:
@@ -113,46 +113,42 @@ def ask(question: str) -> AskResult:
         return result
     result.sql = sql
 
-    verdict = guard.validate(sql)
-    if not verdict.ok:
-        result.error = f"안전 검증 거부: {verdict.reason}"
-        return result
+    res = mcp_client.run_query(sql)
+    trace["error_stage"] = res.error_stage
+    if res.sql:
+        result.sql = res.sql
 
-    safe_sql = guard.inject_limit(
-        verdict.sql,
-        default_limit=settings.sql_row_limit,
-        max_limit=settings.sql_max_limit,
-    )
-    result.sql = safe_sql
-
-    err = execute.explain(safe_sql)
-    if err:
-        trace["explain_error_1"] = err
+    # EXPLAIN 실패만 재생성한다. guard 거부를 다시 넣으면 모델이 게이트를
+    # 통과하는 변형을 찾도록 유도할 뿐이고, 실행 실패와 통신 실패는
+    # 재생성으로 나아지지 않는다.
+    if not res.ok and res.error_stage == "explain":
+        trace["explain_error_1"] = res.error
         try:
-            retry = generate.regenerate(llm, text, safe_sql, err)
+            retry = generate.regenerate(llm, text, result.sql, res.error)
         except Exception as e:  # noqa: BLE001
             trace["llm_error"] = f"{type(e).__name__}: {e}"
             result.error = f"재생성 중 LLM 호출 실패: {type(e).__name__}"
             return result
-        verdict = guard.validate(retry)
-        if not verdict.ok:
-            result.error = f"재생성 후 안전 검증 거부: {verdict.reason}"
-            result.sql = retry
-            return result
-        safe_sql = guard.inject_limit(
-            verdict.sql,
-            default_limit=settings.sql_row_limit,
-            max_limit=settings.sql_max_limit,
-        )
-        result.sql = safe_sql
-        err = execute.explain(safe_sql)
-        if err:
-            trace["explain_error_2"] = err
-            result.error = f"SQL 검증 실패(재시도 포함 2회): {err}"
+
+        result.sql = retry
+        res = mcp_client.run_query(retry)
+        trace["error_stage"] = res.error_stage
+        if res.sql:
+            result.sql = res.sql
+        if not res.ok:
+            trace["explain_error_2"] = res.error
+            result.error = f"SQL 검증 실패(재시도 포함 2회): {res.error}"
             return result
 
-    try:
-        result.columns, result.rows = execute.run(safe_sql)
-    except Exception as e:  # noqa: BLE001
-        result.error = f"실행 실패: {e}"
+    if not res.ok:
+        labels = {
+            "guard": "안전 검증 거부",
+            "execute": "실행 실패",
+            "transport": "SQL 실행 서버 연결 실패",
+        }
+        result.error = f"{labels.get(res.error_stage, '실패')}: {res.error}"
+        return result
+
+    result.columns = res.columns
+    result.rows = res.rows
     return result
