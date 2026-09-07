@@ -16,6 +16,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn>=0.32",
     "streamlit==1.40.0",
+    "mcp>=1.2",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +28,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app*", "sqlmcp*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
