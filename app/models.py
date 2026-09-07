@@ -34,6 +34,21 @@ class JoinPath:
     edges: tuple[Edge, ...]
 
 
+@dataclass(frozen=True)
+class QueryResult:
+    """MCP run_query 응답.
+
+    error_stage: guard | explain | execute | transport | None
+    """
+    ok: bool
+    sql: str | None = None
+    columns: list[str] = field(default_factory=list)
+    rows: list[list] = field(default_factory=list)
+    row_count: int = 0
+    error: str | None = None
+    error_stage: str | None = None
+
+
 @dataclass
 class AskResult:
     question: str
@@ -42,6 +57,6 @@ class AskResult:
     context: str = ""
     sql: str | None = None
     columns: list[str] = field(default_factory=list)
-    rows: list[tuple] = field(default_factory=list)
+    rows: list[list] = field(default_factory=list)
     error: str | None = None
     trace: dict = field(default_factory=dict)

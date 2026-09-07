@@ -60,10 +60,23 @@ class Settings(BaseSettings):
     trgm_min_similarity: float = 0.7
 
     # SQL 실행
+    # NOTE: sql_row_limit / sql_max_limit 은 app/pipeline.py(Task 7 대상)가
+    # 여전히 참조하고 있어 이번 작업에서는 삭제하지 않는다. sql_timeout_sec은
+    # pipeline.py 에서도 쓰이지 않지만 세 값을 묶어 다루던 블록이라 함께 남겨둔다.
     sql_row_limit: int = 100
     sql_max_limit: int = 1000
     sql_timeout_sec: int = Field(default=10, gt=0)
     collect_timeout_sec: int = Field(default=120, gt=0)
+
+    # 백엔드 API. Streamlit / CLI 가 이 주소로 질문을 보낸다.
+    api_url: str = "http://127.0.0.1:8000"
+
+    # SQL 실행 MCP 서버. uvicorn 프로세스만 사용한다.
+    mcp_url: str = "http://127.0.0.1:8100/mcp"
+    mcp_auth_token: str = ""
+    # 서버의 statement_timeout(.env.mcp 의 SQL_TIMEOUT_SEC)이 먼저 터져야
+    # 원인을 알 수 있으므로 반드시 그보다 크게 잡는다.
+    mcp_timeout_sec: int = Field(default=30, gt=0)
 
     # 디버그: DB로 보내는 SQL과 반환 행을 실행 터미널(stderr)에 출력한다.
     # 파라미터 값과 조회 결과가 그대로 찍히므로 운영에서는 켜지 않는다.
