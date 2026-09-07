@@ -19,7 +19,10 @@ def ask_endpoint(req: AskRequest) -> dict:
         "tables": r.table_names,
         "sql": r.sql,
         "columns": r.columns,
-        "rows": [list(map(str, row)) for row in r.rows],
+        # NULL 은 JSON null 로 넘긴다. str() 을 씌우면 "None" 이라는 글자가 되어
+        # 화면에 그대로 찍힌다. 나머지 값은 지금처럼 문자열로 통일한다
+        # (date/Decimal 등을 그대로 실어 보내지 않기 위해서다).
+        "rows": [[None if v is None else str(v) for v in row] for row in r.rows],
         "error": r.error,
         "context": r.context,
         "trace": r.trace,
