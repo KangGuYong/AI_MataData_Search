@@ -5,7 +5,7 @@ import typer
 from rich.console import Console
 
 from app.config import settings
-from app.db import biz_conn_readonly, dsn_user, mask_dsn, meta_conn
+from app.db import dsn_user, mask_dsn, meta_conn
 
 app_cli = typer.Typer(help="AI 메타데이터 검색 CLI")
 console = Console()
@@ -61,11 +61,13 @@ def doctor() -> None:
         console.print(f"[red]FAIL[/] meta DB 연결 실패: {e}")
         ok = False
 
+    from app.db import biz_conn_collect
+
     try:
-        with biz_conn_readonly() as conn, conn.cursor() as cur:
+        with biz_conn_collect() as conn, conn.cursor() as cur:
             cur.execute("SELECT current_user, current_database()")
             user, db = cur.fetchone()
-        console.print(f"[green]OK[/] biz DB 연결 (READ ONLY). user={user} db={db}")
+        console.print(f"[green]OK[/] biz DB 연결 (수집용). user={user} db={db}")
     except Exception as e:  # noqa: BLE001
         console.print(f"[red]FAIL[/] biz DB 연결 실패: {e}")
         ok = False

@@ -94,21 +94,6 @@ def meta_conn():
 
 
 @contextmanager
-def biz_conn_readonly():
-    """업무 DB 커넥션. 항상 READ ONLY 트랜잭션이며 커밋하지 않는다."""
-    with psycopg.connect(settings.biz_dsn, autocommit=False, **_cursor_kw()) as conn:
-        conn.read_only = True
-        try:
-            with conn.cursor() as cur:
-                # SET은 바인드 파라미터를 지원하지 않는다. 값은 설정값(int)이라 안전하다.
-                cur.execute(f"SET LOCAL statement_timeout = '{int(settings.sql_timeout_sec)}s'")
-                cur.execute("SET LOCAL transaction_read_only = on")
-            yield conn
-        finally:
-            conn.rollback()
-
-
-@contextmanager
 def biz_conn_collect():
     """수집용 업무 DB 커넥션. 프로파일링은 시간이 걸릴 수 있어 타임아웃을 길게 잡는다."""
     with psycopg.connect(settings.biz_dsn, autocommit=True, **_cursor_kw()) as conn:

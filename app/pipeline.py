@@ -18,8 +18,8 @@ from app.search import keyword, selectivity, value, vector
 from app.search.fusion import fuse
 from app.search.graph import find_join_paths, load_edges
 from app.search.tokenize import tokenize
-from app.sqlgen import execute, generate
-from sqlmcp import guard
+from app.sqlgen import generate
+from sqlmcp import execute, guard
 
 
 def retrieve(question: str) -> tuple[str, list[int], list[str], dict]:
