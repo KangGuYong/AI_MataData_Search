@@ -1,6 +1,6 @@
 from app.models import SearchHit
 
-# 토큰 하나를 search_text 전체와 대조한다.
+# 토큰 하나(내가 입력한 질문을 쪼갠 것)를 search_text(테이블 컬럼 성명) 전체와 대조한다.
 #
 # 질문 전체를 similarity()로 재면 안 된다. similarity()는 대칭 집합 유사도라
 # 짧은 질의와 긴 search_text 사이에서는 값이 구조적으로 낮게 나온다

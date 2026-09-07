@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # LLM
     ollama_base_url: str = "http://192.168.0.169:11434"
     llm_model: str = "gemma4:26b-a4b-it-q4_K_M"
-    llm_timeout_sec: int = 60
+    llm_timeout_sec: int = 300
 
     # Embedding
     embed_provider: str = "ollama"          # ollama | sentence_transformers
@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     sql_max_limit: int = 1000
     sql_timeout_sec: int = Field(default=10, gt=0)
     collect_timeout_sec: int = Field(default=120, gt=0)
+
+    # 디버그: DB로 보내는 SQL과 반환 행을 실행 터미널(stderr)에 출력한다.
+    # 파라미터 값과 조회 결과가 그대로 찍히므로 운영에서는 켜지 않는다.
+    sql_echo: bool = False
+    sql_echo_rows: int = 5      # 결과 미리보기 행 수. 0이면 행 수만 출력한다.
+    sql_echo_maxlen: int = 2000  # SQL/값 1건당 출력 길이 상한
 
     @property
     def weights(self) -> dict[str, float]:

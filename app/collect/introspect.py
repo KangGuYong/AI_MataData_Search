@@ -1,6 +1,8 @@
 from app.config import settings
 from app.db import biz_conn_collect, meta_conn
 
+
+# 지정한 스크마에 있는 테이블 목록 조회
 TABLE_SQL = """
 SELECT c.relname,
        obj_description(c.oid, 'pg_class') AS table_comment,
@@ -11,6 +13,7 @@ WHERE n.nspname = %s AND c.relkind = 'r'
 ORDER BY c.relname
 """
 
+# 
 COLUMN_SQL = """
 SELECT a.attname,
        a.attnum,

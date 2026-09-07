@@ -8,7 +8,7 @@ st.title("AI 메타데이터 검색")
 question = st.text_input("질문", placeholder="서울 고객의 2025년 판매 실적")
 
 if st.button("질의", type="primary") and question:
-    with st.spinner("검색 및 SQL 생성 중... (LLM 응답까지 최대 1분 정도 걸릴 수 있습니다)"):
+    with st.spinner("검색 및 SQL 생성 중... (LLM 응답까지 최대 1분(최대 5분) 정도 걸릴 수 있습니다)"):
         r = run_ask(question)
 
     st.subheader("선정 테이블")
