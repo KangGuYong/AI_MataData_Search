@@ -39,6 +39,7 @@ def doctor() -> None:
     """DB / Ollama 연결과 확장 설치 상태를 점검한다."""
     console.print(f"[bold]META_DSN[/] {mask_dsn(settings.meta_dsn)}")
     console.print(f"[bold]BIZ_DSN [/] {mask_dsn(settings.biz_dsn)}")
+    console.print(f"[bold]MCP_URL [/] {settings.mcp_url}")
 
     if dsn_user(settings.meta_dsn) == dsn_user(settings.biz_dsn):
         console.print(
@@ -73,6 +74,20 @@ def doctor() -> None:
         ok = False
 
     import httpx
+
+    try:
+        r = httpx.get(settings.mcp_url, timeout=5)
+        if r.status_code == 401:
+            console.print(f"[green]OK[/] MCP 서버 응답 (인증 활성). {settings.mcp_url}")
+        else:
+            console.print(
+                f"[red]FAIL[/] MCP 서버가 인증 없이 {r.status_code} 를 반환했습니다. "
+                "MCP_AUTH_TOKEN 설정을 확인하십시오."
+            )
+            ok = False
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[red]FAIL[/] MCP 서버 연결 실패: {e}")
+        ok = False
 
     try:
         r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=10)
@@ -213,30 +228,47 @@ def context(question: str) -> None:
     console.print(text)
 
 
+def _ask_api(question: str) -> dict:
+    """백엔드 /ask 를 호출한다. CLI 는 MCP 토큰을 갖지 않는다."""
+    import httpx
+
+    r = httpx.post(
+        f"{settings.api_url}/ask",
+        json={"question": question},
+        timeout=settings.llm_timeout_sec + 60,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
 @app_cli.command()
 def ask(question: str, show_context: bool = typer.Option(False, "--show-context")) -> None:
-    """질문에 대해 SQL을 생성하고 실행한다."""
+    """질문에 대해 SQL을 생성하고 실행한다. 백엔드 API를 경유한다."""
     from rich.table import Table
 
-    from app.pipeline import ask as run_ask
-
-    r = run_ask(question)
-    console.print(f"[bold]선정 테이블[/] {r.table_names}")
-    console.print(f"[bold]점수[/] {r.trace.get('scores')}")
-    if show_context:
-        console.print(r.context)
-    if r.sql:
-        console.print(f"[bold]SQL[/]\n{r.sql}")
-    if r.error:
-        console.print(f"[red]{r.error}[/]")
+    try:
+        r = _ask_api(question)
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[red]백엔드 호출 실패[/] {type(e).__name__}: {e}")
+        console.print(f"  {settings.api_url} 에 uvicorn 이 떠 있는지 확인하십시오.")
         raise typer.Exit(1)
 
-    if r.columns:
-        tbl = Table(*r.columns)
-        for row in r.rows[:20]:
+    console.print(f"[bold]선정 테이블[/] {r['tables']}")
+    console.print(f"[bold]점수[/] {r['trace'].get('scores')}")
+    if show_context:
+        console.print(r["context"])
+    if r["sql"]:
+        console.print(f"[bold]SQL[/]\n{r['sql']}")
+    if r["error"]:
+        console.print(f"[red]{r['error']}[/]")
+        raise typer.Exit(1)
+
+    if r["columns"]:
+        tbl = Table(*r["columns"])
+        for row in r["rows"][:20]:
             tbl.add_row(*["" if v is None else str(v) for v in row])
         console.print(tbl)
-    console.print(f"{len(r.rows)}행")
+    console.print(f"{len(r['rows'])}행")
 
 
 @app_cli.command("eval")
@@ -247,7 +279,6 @@ def eval_cmd(
     import yaml
     from rich.table import Table
 
-    from app.pipeline import ask as run_ask
     from app.pipeline import retrieve
 
     cases = yaml.safe_load(
@@ -266,16 +297,20 @@ def eval_cmd(
             actual = {n.split(".")[-1] for n in names}
             sql_mark, note = "-", ""
         else:
-            r = run_ask(case["question"])
-            actual = {n.split(".")[-1] for n in r.table_names}
+            try:
+                r = _ask_api(case["question"])
+            except Exception as e:  # noqa: BLE001
+                console.print(f"[red]백엔드 호출 실패[/] {type(e).__name__}: {e}")
+                raise typer.Exit(1)
+            actual = {n.split(".")[-1] for n in r["tables"]}
             # 무관 질문은 SQL을 만들지 않는 것이 정답이다.
             if expected:
-                ok = r.error is None and r.sql is not None
+                ok = r["error"] is None and r["sql"] is not None
             else:
-                ok = r.sql is None
+                ok = r["sql"] is None
             sql_ok += int(ok)
             sql_mark = "O" if ok else "X"
-            note = (r.error or "")[:40]
+            note = (r["error"] or "")[:40]
 
         if not expected:
             recall = 1.0 if not actual else 0.0
