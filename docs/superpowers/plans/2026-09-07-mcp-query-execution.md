@@ -453,21 +453,8 @@ git commit -m "refactor: 업무 DB 커넥션과 SQL 실행을 sqlmcp로 옮긴�
 `tests/test_query_contract.py`:
 
 ```python
-import pytest
-
-from sqlmcp.db import biz_conn_readonly
 from sqlmcp.query import run_query
-
-
-def _db_available() -> bool:
-    try:
-        with biz_conn_readonly():
-            return True
-    except Exception:
-        return False
-
-
-needs_db = pytest.mark.skipif(not _db_available(), reason="업무 DB에 연결할 수 없음")
+from tests.conftest import needs_db
 
 
 def test_guard_거부는_stage가_guard다():
