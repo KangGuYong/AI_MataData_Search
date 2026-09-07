@@ -1,6 +1,6 @@
 import pytest
 
-from app.sqlgen.guard import inject_limit, validate
+from sqlmcp.guard import inject_limit, validate
 
 
 @pytest.mark.parametrize(

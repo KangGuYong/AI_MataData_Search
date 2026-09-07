@@ -34,13 +34,6 @@ class JoinPath:
     edges: tuple[Edge, ...]
 
 
-@dataclass(frozen=True)
-class GuardResult:
-    ok: bool
-    sql: str | None
-    reason: str | None
-
-
 @dataclass
 class AskResult:
     question: str

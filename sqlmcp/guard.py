@@ -7,10 +7,18 @@
 순수 함수만 존재해야 한다: DB 접근, 네트워크 호출, settings import 금지.
 """
 
+from dataclasses import dataclass
+
 import sqlglot
 from sqlglot import exp
 
-from app.models import GuardResult
+
+@dataclass(frozen=True)
+class GuardResult:
+    ok: bool
+    sql: str | None
+    reason: str | None
+
 
 # SELECT/WITH 트리 안에 이런 노드가 하나라도 있으면 무조건 거부한다.
 FORBIDDEN_NODES = (
