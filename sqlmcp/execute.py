@@ -22,5 +22,7 @@ def run(sql: str) -> tuple[list[str], list[tuple]]:
     with biz_conn_readonly() as conn, conn.cursor() as cur:
         cur.execute(sql)
         columns = [d.name for d in cur.description] if cur.description else []
+        # inject_limit 이 이미 LIMIT 을 넣었지만 여기서 한 번 더 자른다.
+        # guard 가 뚫려 LIMIT 없는 SQL 이 흘러와도 행 수가 폭발하지 않게 하는 2차 방어다.
         rows = cur.fetchmany(settings.sql_max_limit)
     return columns, rows

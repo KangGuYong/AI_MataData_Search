@@ -67,6 +67,8 @@ class Settings(BaseSettings):
 
     # SQL 실행 MCP 서버. uvicorn 프로세스만 사용한다.
     mcp_url: str = "http://127.0.0.1:8100/mcp"
+    # 여기는 빈 값을 허용한다(설정 전이면 401을 받을 뿐이다).
+    # 비어 있으면 안 되는 쪽은 서버이고, sqlmcp/config.py 가 기동을 막는다.
     mcp_auth_token: str = ""
     # 서버의 statement_timeout(.env.mcp 의 SQL_TIMEOUT_SEC)이 먼저 터져야
     # 원인을 알 수 있으므로 반드시 그보다 크게 잡는다.

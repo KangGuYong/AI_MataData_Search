@@ -34,6 +34,9 @@ FORBIDDEN_NODES = (
     exp.Merge,
     exp.Command,
     exp.Into,  # SELECT ... INTO newtable / CREATE TABLE AS 형태의 쓰기 위장
+    # SELECT ... FOR UPDATE/SHARE. READ ONLY 트랜잭션이 어차피 막지만, 거기까지
+    # 가면 DB를 한 번 왕복하고 error_stage=execute 로 떨어져 원인이 흐려진다.
+    exp.Lock,
 )
 
 # 최상위 statement로 허용하는 타입.

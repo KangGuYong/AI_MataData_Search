@@ -33,6 +33,18 @@ def test_ddl_dml은_거부된다(sql):
     assert validate(sql).ok is False
 
 
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT * FROM biz.customer FOR UPDATE",
+        "SELECT * FROM biz.customer FOR SHARE",
+    ],
+)
+def test_잠금_구문은_거부된다(sql):
+    # READ ONLY 트랜잭션도 막지만, guard에서 거르면 DB 왕복 없이 사유가 명확해진다.
+    assert validate(sql).ok is False
+
+
 def test_다중_statement는_거부된다():
     r = validate("SELECT 1; DELETE FROM biz.orders")
     assert r.ok is False

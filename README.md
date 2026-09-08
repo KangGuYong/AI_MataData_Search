@@ -70,6 +70,20 @@ uvicorn app.api:api --port 8000   # 백엔드. MCP를 호출하는 유일한 프
 streamlit run app/ui.py           # UI. 백엔드 API만 호출한다
 ```
 
+## 테스트
+
+```bash
+python -m pytest -q
+```
+
+서버(uvicorn, sqlmcp)는 띄우지 않아도 됩니다. 업무 DB에 닿을 수 없으면 DB가 필요한
+테스트만 skip되고 나머지는 그대로 돕니다.
+
+다만 `.env.mcp`는 있어야 합니다. `sqlmcp/config.py`가 import 시점에 설정을 읽으므로,
+파일이 없으면 `test_sqlmcp_config.py` / `test_sqlmcp_db.py` / `test_query_contract.py`
+세 파일이 수집 단계에서 실패합니다. 나머지 테스트는 그 없이도 돕니다
+(`python -m pytest tests/test_guard.py ...`).
+
 ## 측정 결과
 
 8문항 평가 세트 기준:
