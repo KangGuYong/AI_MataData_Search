@@ -13,7 +13,7 @@ LLM으로 SQL을 생성해 읽기 전용으로 실행하는 Text-to-SQL 프로�
   - `vector`는 슈퍼유저 권한으로만 설치할 수 있습니다 (`CREATE EXTENSION vector`).
   - `pg_trgm`은 일반 DB 소유자 권한으로 설치 가능합니다.
 - Ollama 호스트. 다음 두 모델이 받아져 있어야 합니다.
-  - `gemma4:26b-a4b-it-q4_K_M` (SQL 생성용 LLM, 26B라 응답에 10~40초, 최악의 경우 60초 타임아웃까지 걸립니다)
+  - `gemma4:26b-a4b-it-q4_K_M` (SQL 생성용 LLM, 26B라 응답에 10~40초 걸립니다. 타임아웃은 `LLM_TIMEOUT_SEC`, 기본 300초)
   - `bge-m3:latest` (임베딩용)
 
 ## 설치

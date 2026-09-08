@@ -1,5 +1,11 @@
-# sqlmcp -> uvicorn -> (선택) streamlit 순으로 띄우고, 종료 시 함께 내린다.
+# sqlmcp -> uvicorn -> (선택) streamlit 순으로 띄운다.
 # 사용법: scripts\run.ps1 api   또는   scripts\run.ps1 ui
+#
+# 아래 finally 는 Ctrl+C 같은 정상 종료에서만 돈다. 이 창을 강제로 닫거나
+# powershell 프로세스를 Stop-Process 로 죽이면 python 자식들이 그대로 남는다.
+# 그때는 이렇게 정리한다:
+#   Get-NetTCPConnection -LocalPort 8000,8100 -State Listen |
+#     ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 param([ValidateSet("api", "ui")][string]$Mode = "ui")
 
 $ErrorActionPreference = "Stop"
