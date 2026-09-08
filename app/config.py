@@ -76,6 +76,9 @@ class Settings(BaseSettings):
 
     # 디버그: DB로 보내는 SQL과 반환 행을 실행 터미널(stderr)에 출력한다.
     # 파라미터 값과 조회 결과가 그대로 찍히므로 운영에서는 켜지 않는다.
+    # 실제로 LLM에 보낸 프롬프트(system+user) 전문을 trace에 남긴다.
+    # 컨텍스트가 길어 응답이 커지므로 원인을 파고들 때만 켠다.
+    prompt_echo: bool = False
     sql_echo: bool = False
     sql_echo_rows: int = 5      # 결과 미리보기 행 수. 0이면 행 수만 출력한다.
     sql_echo_maxlen: int = 2000  # SQL/값 1건당 출력 길이 상한

@@ -56,10 +56,28 @@ def looks_like_sql(text: str) -> bool:
     return bool(re.match(r"^\s*(WITH|SELECT)\b", text or "", re.IGNORECASE))
 
 
+def prompt_for(context: str) -> dict[str, str]:
+    """LLM에 보내는 프롬프트를 조립한다.
+
+    generate()가 이 함수를 그대로 쓰므로, 여기서 돌려준 값은 실제로 보낸 것과
+    항상 같다. 추적(trace)에 남길 때도 이 함수를 부른다.
+    """
+    return {"system": SYSTEM, "user": context}
+
+
+def retry_prompt_for(context: str, failed_sql: str, error: str) -> dict[str, str]:
+    """재생성 프롬프트를 조립한다. regenerate()가 그대로 쓴다."""
+    return {
+        "system": SYSTEM,
+        "user": RETRY_TEMPLATE.format(context=context, sql=failed_sql, error=error),
+    }
+
+
 def generate(llm: LLMClient, context: str) -> str:
-    return extract_sql(llm.complete(context, system=SYSTEM))
+    p = prompt_for(context)
+    return extract_sql(llm.complete(p["user"], system=p["system"]))
 
 
 def regenerate(llm: LLMClient, context: str, failed_sql: str, error: str) -> str:
-    prompt = RETRY_TEMPLATE.format(context=context, sql=failed_sql, error=error)
-    return extract_sql(llm.complete(prompt, system=SYSTEM))
+    p = retry_prompt_for(context, failed_sql, error)
+    return extract_sql(llm.complete(p["user"], system=p["system"]))

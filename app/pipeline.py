@@ -30,6 +30,16 @@ _STAGE_LABELS = {
 }
 
 
+def _echo_prompt(trace: dict, key: str, prompt: dict[str, str]) -> None:
+    """PROMPT_ECHO=true 일 때만 실제로 보낸 프롬프트를 trace에 남긴다.
+
+    컨텍스트는 테이블 수에 비례해 길어져서 /ask 응답을 크게 부풀린다.
+    원인을 파고들 때만 켠다.
+    """
+    if settings.prompt_echo:
+        trace[key] = prompt
+
+
 def _record(res: QueryResult, result: AskResult, trace: dict) -> None:
     """MCP 응답에서 trace와 result.sql을 갱신한다. 두 번의 시도가 같은 처리를 한다."""
     trace["error_stage"] = res.error_stage
@@ -114,14 +124,17 @@ def ask(question: str) -> AskResult:
     # 예외를 그대로 올리면 eval 루프가 한 문항에서 통째로 중단되므로
     # AskResult.error로 바꿔 다음 문항이 계속되게 한다.
     try:
+        _echo_prompt(trace, "prompt_1", generate.prompt_for(text))
         sql = generate.generate(llm, text)
 
         # 응답이 SQL 형태조차 아니면 1회 재생성한다 (안전 게이트 거부와는 다른 경우).
         if not generate.looks_like_sql(sql):
             trace["not_sql_response"] = sql[:200]
-            sql = generate.regenerate(
-                llm, text, sql, "응답이 SELECT 문이 아닙니다. SQL만 출력하시오."
+            reason = "응답이 SELECT 문이 아닙니다. SQL만 출력하시오."
+            _echo_prompt(
+                trace, "prompt_not_sql", generate.retry_prompt_for(text, sql, reason)
             )
+            sql = generate.regenerate(llm, text, sql, reason)
     except Exception as e:  # noqa: BLE001
         trace["llm_error"] = f"{type(e).__name__}: {e}"
         result.error = f"LLM 호출 실패: {type(e).__name__}"
@@ -137,6 +150,11 @@ def ask(question: str) -> AskResult:
     if not res.ok and res.error_stage == "explain":
         trace["explain_error_1"] = res.error
         try:
+            _echo_prompt(
+                trace,
+                "prompt_explain",
+                generate.retry_prompt_for(text, result.sql, res.error),
+            )
             retry = generate.regenerate(llm, text, result.sql, res.error)
         except Exception as e:  # noqa: BLE001
             trace["llm_error"] = f"{type(e).__name__}: {e}"

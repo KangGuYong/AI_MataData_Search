@@ -139,3 +139,58 @@ def test_explain_외의_실패는_재생성하지_않는다(monkeypatch, stub, s
     assert r.error
     assert len(calls) == 1
     assert generated == []
+
+
+def test_PROMPT_ECHO가_꺼져있으면_프롬프트를_남기지_않는다(monkeypatch, stub):
+    calls, _ = stub
+    monkeypatch.setattr(pipeline.settings, "prompt_echo", False)
+    monkeypatch.setattr(
+        pipeline.mcp_client, "run_query",
+        lambda sql: calls.append(sql)
+        or QueryResult(ok=True, sql=sql, columns=["a"], rows=[[1]], row_count=1),
+    )
+
+    r = pipeline.ask("질문")
+
+    assert not [k for k in r.trace if k.startswith("prompt_")]
+
+
+def test_PROMPT_ECHO가_켜지면_보낸_프롬프트를_그대로_남긴다(monkeypatch, stub):
+    calls, _ = stub
+    monkeypatch.setattr(pipeline.settings, "prompt_echo", True)
+    monkeypatch.setattr(
+        pipeline.mcp_client, "run_query",
+        lambda sql: calls.append(sql)
+        or QueryResult(ok=True, sql=sql, columns=["a"], rows=[[1]], row_count=1),
+    )
+
+    r = pipeline.ask("질문")
+
+    # stub의 retrieve가 컨텍스트로 "컨텍스트"를 돌려준다. user 메시지는 그것 자체다.
+    assert r.trace["prompt_1"] == pipeline.generate.prompt_for("컨텍스트")
+    assert r.trace["prompt_1"]["user"] == "컨텍스트"
+    assert "PostgreSQL" in r.trace["prompt_1"]["system"]
+    assert "prompt_explain" not in r.trace
+
+
+def test_재생성하면_2차_프롬프트도_남는다(monkeypatch, stub):
+    calls, _ = stub
+    monkeypatch.setattr(pipeline.settings, "prompt_echo", True)
+    responses = [
+        QueryResult(ok=False, sql="SELECT 1 LIMIT 100", error="컬럼 없음",
+                    error_stage="explain"),
+        QueryResult(ok=True, sql="SELECT 2 LIMIT 100", columns=["a"],
+                    rows=[[2]], row_count=1),
+    ]
+    monkeypatch.setattr(
+        pipeline.mcp_client, "run_query",
+        lambda sql: calls.append(sql) or responses.pop(0),
+    )
+
+    r = pipeline.ask("질문")
+
+    user = r.trace["prompt_explain"]["user"]
+    # 재생성 프롬프트에는 컨텍스트·실패한 SQL·오류가 모두 들어가야 한다.
+    assert "컨텍스트" in user
+    assert "SELECT 1 LIMIT 100" in user
+    assert "컬럼 없음" in user
